@@ -1,0 +1,92 @@
+[app/ui]
+version = 7.3.1
+modtime = 1589578965.095563000
+
+[app/launcher]
+version = 7.3.1
+modtime = 1589578965.098414000
+
+[lookups/value_drivers.csv]
+owner = admin
+version = 7.1.2
+modtime = 1569018664.167465000
+
+[nav/default]
+version = 7.3.1
+modtime = 1589752188.369897000
+
+[views/data_summary]
+owner = admin
+version = 7.3.1
+modtime = 1589649101.313806000
+
+[views/rbac_explorer]
+owner = admin
+version = 7.3.1
+modtime = 1589757738.468930000
+
+[views/splunk_user_activity]
+owner = admin
+version = 7.1.2
+modtime = 1584499144.833722000
+
+[views/data_onboarding]
+owner = admin
+version = 7.3.1
+modtime = 1589756511.659443000
+
+[views/data_performance]
+access = read : [ * ], write : [ * ]
+export = none
+owner = admin
+version = 7.1.2
+modtime = 1584568542.626650000
+
+[views/bucket_explorer]
+version = 7.3.1
+modtime = 1588878737.613941000
+
+[views/dashboard_adoption]
+owner = admin
+version = 7.3.1
+modtime = 1588878335.681513000
+
+[app/install/install_source_checksum]
+version = 7.3.1
+modtime = 1584636984.617050000
+
+[views/user_adoption]
+version = 7.3.1
+modtime = 1589752286.861429000
+
+[indexes/wb_buckets]
+owner = admin
+version = 7.3.1
+modtime = 1584972529.029478000
+
+[]
+access = read : [ supportanalyst ], write : [ admin, power, splunk-system-role ]
+export = none
+version = 7.3.1
+modtime = 1586543427.844050000
+
+[panels/search_history]
+owner = admin
+version = 7.3.1
+modtime = 1586477674.536818000
+
+[views/home]
+owner = admin
+version = 7.3.1
+modtime = 1589757664.635088000
+
+[views/alert_adoption]
+access = read : [ supportanalyst ], write : [ admin, power, splunk-system-role ]
+export = none
+owner = admin
+version = 7.3.1
+modtime = 1588203711.469148000
+
+[app/package/check_for_updates]
+version = 7.3.1
+modtime = 1589578965.099473000
