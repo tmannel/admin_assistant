@@ -1,0 +1,29 @@
+<form theme="light">
+  <label>Alert Adoption</label>
+  <description>Explore user of alerts over time.</description>
+  <fieldset submitButton="false" autoRun="true">
+    <input type="time" token="dashboardAdoption_timepicker" searchWhenChanged="true">
+      <label>Time Range</label>
+      <default>
+        <earliest>-7d@h</earliest>
+        <latest>now</latest>
+      </default>
+    </input>
+  </fieldset>
+  <row>
+    <panel>
+      <html>
+        <h1 align="center">Alert Usage</h1>
+        <p align="center">Alert activity configured from this search head or search head cluster.</p>
+      </html>
+    </panel>
+  </row>
+    <row>
+    <panel>
+      <html>
+        <h1 align="center">Modifications</h1>
+        <p align="center">Create, edit, and delete actions on alert objects.</p>
+      </html>
+    </panel>
+  </row>
+</form>
