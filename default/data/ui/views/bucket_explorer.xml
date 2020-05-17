@@ -1,0 +1,309 @@
+<form theme="light">
+  <label>Bucket Explorer</label>
+  <description>Bucket size, replication, retention, indexing lag, etc.</description>
+  <fieldset submitButton="true" autoRun="false">
+    <input type="time" token="bucket_timepicker" searchWhenChanged="false">
+      <label>Bucket Last Modified</label>
+      <default>
+        <earliest>-7d@h</earliest>
+        <latest>now</latest>
+      </default>
+    </input>
+    <input type="multiselect" token="bucket_index_token" searchWhenChanged="false">
+      <label>Filter by Index</label>
+      <choice value="*">All</choice>
+      <choice value="* NOT index=&quot;_*&quot;">All non-internal</choice>
+      <prefix>(</prefix>
+      <suffix>)</suffix>
+      <valuePrefix>index=</valuePrefix>
+      <delimiter> OR </delimiter>
+      <fieldForLabel>index</fieldForLabel>
+      <fieldForValue>index</fieldForValue>
+      <search>
+        <query>| dbinspect index=*
+| fields index
+| dedup index</query>
+        <earliest>0</earliest>
+        <latest></latest>
+      </search>
+      <initialValue>* NOT index="_*"</initialValue>
+    </input>
+  </fieldset>
+  <row depends="$hide$">
+    <panel>
+      <!--creates an HTML panel in order to create an inline style sheet-->
+      <html>
+        <style>
+      //<!--this creates a solid line border on the top and sides of the element with the id=row1-->{}
+          #panel_bucketMetrics {
+              padding-bottom: 20px !important;}
+        </style>
+      </html>
+    </panel>
+  </row>
+  <row>
+    <panel id="panel_bucketMetrics">
+      <input type="multiselect" token="bucket_state_token" searchWhenChanged="true">
+        <label>State</label>
+        <choice value="hot">hot</choice>
+        <choice value="warm">warm</choice>
+        <choice value="cold">cold</choice>
+        <choice value="frozen">frozen</choice>
+        <prefix>(</prefix>
+        <suffix>)</suffix>
+        <valuePrefix>state=</valuePrefix>
+        <delimiter> OR </delimiter>
+        <default>hot,warm,cold,frozen</default>
+      </input>
+      <table>
+        <title>dbinspect query returning bucket metrics by bucket state and index.</title>
+        <search>
+          <query>| dbinspect index=* 
+| fields bucketId index state eventCount startEpoch endEpoch hostCount rawSize sizeOnDiskMB sourceCount sourceTypeCount 
+| eval rawMB=((rawSize/1024)/1024) 
+| eval rawGB=rawMB/1024 
+| eval sizeOnDiskGB=sizeOnDiskMB/1024 
+| eval sort_field=case(state="hot",1,state="warm",2,state="cold",3) 
+| stats dc(bucketId) as "Number of Buckets" sum(eventCount) as "Total Events" min(startEpoch) as earliestData max(endEpoch) as latestData avg(sourceCount) as "Avg Sources per Bucket" avg(sourceTypeCount) as "Avg Sourcetypes per Bucket" sum(sizeOnDiskMB) as "Compressed MB on Disk" sum(sizeOnDiskGB) as "Compressed GB on Disk" sum(rawMB) as "Raw MB" sum(rawGB) as "Raw GB" by index, state, sort_field 
+| eval spanHours=(((latestData-earliestData)/60)/60) 
+| eval spanDays=spanHours/24 
+| eval "Earliest Data"=strftime(earliestData,"%m/%d/%y %H:%M") 
+| eval "Latest Data"=strftime(latestData,"%m/%d/%y %H:%M") 
+| search $bucket_index_token$ 
+| search $bucket_state_token$ 
+| sort index, sort_field, -"Compressed MB on Disk" 
+| table index state "Earliest Data" "Latest Data" spanHours spanDays "Number of Buckets" "Total Events" "Avg Sources per Bucket" "Avg Sourcetypes per Bucket" "Compressed MB on Disk" "Compressed GB on Disk" "Raw MB" "Raw GB"</query>
+          <earliest>$bucket_timepicker.earliest$</earliest>
+          <latest>$bucket_timepicker.latest$</latest>
+          <sampleRatio>1</sampleRatio>
+        </search>
+        <option name="count">20</option>
+        <option name="dataOverlayMode">none</option>
+        <option name="drilldown">none</option>
+        <option name="percentagesRow">false</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="rowNumbers">false</option>
+        <option name="totalsRow">false</option>
+        <option name="wrap">true</option>
+        <format type="number" field="avg(sourceCount)">
+          <option name="precision">0</option>
+        </format>
+        <format type="color" field="distinct_count(id)">
+          <colorPalette type="minMidMax" maxColor="#53A051" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minType="percentile" minValue="0"></scale>
+        </format>
+        <format type="color" field="index">
+          <colorPalette type="sharedList"></colorPalette>
+          <scale type="sharedCategory"></scale>
+        </format>
+        <format type="color" field="avg(sourceCount)">
+          <colorPalette type="minMidMax" maxColor="#006D9C" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="0"></scale>
+        </format>
+        <format type="number" field="avg(sourceTypeCount)">
+          <option name="precision">0</option>
+        </format>
+        <format type="color" field="avg(sourceTypeCount)">
+          <colorPalette type="minMidMax" maxColor="#006D9C" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="0"></scale>
+        </format>
+        <format type="number" field="sum(sizeOnDiskMB)">
+          <option name="unit">MB</option>
+        </format>
+        <format type="color" field="sum(sizeOnDiskMB)">
+          <colorPalette type="minMidMax" maxColor="#006D9C" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="0"></scale>
+        </format>
+        <format type="color" field="sum(rawSize)">
+          <colorPalette type="minMidMax" maxColor="#006D9C" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="0"></scale>
+        </format>
+        <format type="color" field="state">
+          <colorPalette type="map">{"hot":#DC4E41,"warm":#F1813F,"cold":#62B3B2,"frozen":#006D9C}</colorPalette>
+        </format>
+        <format type="color" field="Number of Buckets">
+          <colorPalette type="minMidMax" maxColor="#53A051" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="1"></scale>
+        </format>
+        <format type="color" field="Avg Sources per Bucket">
+          <colorPalette type="minMidMax" maxColor="#53A051" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="1"></scale>
+        </format>
+        <format type="number" field="Avg Sources per Bucket">
+          <option name="precision">0</option>
+        </format>
+        <format type="color" field="Avg Sourcetypes per Bucket">
+          <colorPalette type="minMidMax" maxColor="#53A051" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="1"></scale>
+        </format>
+        <format type="number" field="Avg Sourcetypes per Bucket">
+          <option name="precision">0</option>
+        </format>
+        <format type="number" field="Total MB on Disk">
+          <option name="unit">MB</option>
+        </format>
+        <format type="color" field="Total MB on Disk">
+          <colorPalette type="minMidMax" maxColor="#006D9C" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="0"></scale>
+        </format>
+        <format type="color" field="Raw MB on Disk">
+          <colorPalette type="minMidMax" maxColor="#006D9C" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="0"></scale>
+        </format>
+        <format type="number" field="Raw MB on Disk">
+          <option name="unit">MB</option>
+        </format>
+        <format type="color" field="Raw GB on Disk">
+          <colorPalette type="minMidMax" maxColor="#006D9C" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="0"></scale>
+        </format>
+        <format type="number" field="Raw GB on Disk">
+          <option name="unit">GB</option>
+        </format>
+        <format type="color" field="Total GB on Disk">
+          <colorPalette type="minMidMax" maxColor="#006D9C" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="0"></scale>
+        </format>
+        <format type="number" field="Total GB on Disk">
+          <option name="unit">GB</option>
+        </format>
+        <format type="color" field="Total Events">
+          <colorPalette type="minMidMax" maxColor="#53A051" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="1"></scale>
+        </format>
+        <format type="number" field="Total Events">
+          <option name="precision">0</option>
+        </format>
+        <format type="number" field="State Span in Hours">
+          <option name="unit">hours</option>
+        </format>
+        <format type="color" field="State Span in Hours">
+          <colorPalette type="minMidMax" maxColor="#006D9C" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="0"></scale>
+        </format>
+        <format type="color" field="spanHours">
+          <colorPalette type="minMidMax" maxColor="#006D9C" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="0"></scale>
+        </format>
+        <format type="number" field="spanHours">
+          <option name="unit">hr</option>
+        </format>
+        <format type="color" field="spanDays">
+          <colorPalette type="minMidMax" maxColor="#006D9C" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="0"></scale>
+        </format>
+        <format type="number" field="spanDays">
+          <option name="unit">d</option>
+        </format>
+        <format type="color" field="Compressed MB on Disk">
+          <colorPalette type="minMidMax" maxColor="#006D9C" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="0"></scale>
+        </format>
+        <format type="number" field="Compressed MB on Disk">
+          <option name="unit">MB</option>
+        </format>
+        <format type="color" field="Compressed GB on Disk">
+          <colorPalette type="minMidMax" maxColor="#006D9C" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="0"></scale>
+        </format>
+        <format type="number" field="Compressed GB on Disk">
+          <option name="unit">GB</option>
+        </format>
+        <format type="color" field="Raw MB">
+          <colorPalette type="minMidMax" maxColor="#006D9C" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="0"></scale>
+        </format>
+        <format type="number" field="Raw MB">
+          <option name="unit">MB</option>
+        </format>
+        <format type="color" field="Raw GB">
+          <colorPalette type="minMidMax" maxColor="#006D9C" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="0"></scale>
+        </format>
+        <format type="number" field="Raw GB">
+          <option name="unit">GB</option>
+        </format>
+      </table>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <table>
+        <title>REST API query returning configuration settings for each index as defined in indexes.conf files.</title>
+        <search>
+          <query>| rest splunk_server=local /services/data/indexes 
+| eval minTime=strftime(minTime,"%M-%D-%y %H:%M") 
+| eval maxTime=strptime(maxTime,"%FT%T%Z") 
+| eval frozenTimePeriodInHours=frozenTimePeriodInSecs/3600 
+| eval frozenTimePeriodInDays=frozenTimePeriodInHours/24 
+| eval frozenTimePeriodInYears=frozenTimePeriodInDays/365 
+| eval maxHotSpanDays=maxHotSpanSecs/86400 
+| rename title as index
+| table index eai:acl.app frozenTimePeriodInDays frozenTimePeriodInYears currentDBSizeMB maxTotalDataSizeMB maxHotSpanDays maxHotBuckets maxWarmDBCount maxDataSize homePath.maxDataSizeMB coldPath.maxDataSizeMB 
+| search $bucket_index_token$</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+          <sampleRatio>1</sampleRatio>
+        </search>
+        <option name="count">20</option>
+        <option name="dataOverlayMode">none</option>
+        <option name="drilldown">none</option>
+        <option name="percentagesRow">false</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="rowNumbers">false</option>
+        <option name="totalsRow">false</option>
+        <option name="wrap">true</option>
+        <format type="color" field="frozenTimePeriodInDays">
+          <colorPalette type="minMidMax" maxColor="#006D9C" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="0"></scale>
+        </format>
+        <format type="color" field="title">
+          <colorPalette type="sharedList"></colorPalette>
+          <scale type="sharedCategory"></scale>
+        </format>
+        <format type="color" field="maxTotalDataSizeMB">
+          <colorPalette type="minMidMax" maxColor="#5A4575" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="0"></scale>
+        </format>
+        <format type="number" field="frozenTimePeriodInYears">
+          <option name="precision">1</option>
+          <option name="unit">yrs</option>
+        </format>
+        <format type="number" field="frozenTimePeriodInDays">
+          <option name="precision">0</option>
+          <option name="unit">d</option>
+        </format>
+        <format type="color" field="frozenTimePeriodInYears">
+          <colorPalette type="minMidMax" maxColor="#006D9C" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="0"></scale>
+        </format>
+        <format type="color" field="maxHotBuckets">
+          <colorPalette type="minMidMax" maxColor="#DC4E41" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="0"></scale>
+        </format>
+        <format type="color" field="maxWarmDBCount">
+          <colorPalette type="minMidMax" maxColor="#F1813F" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="0"></scale>
+        </format>
+        <format type="color" field="currentDBSizeMB">
+          <colorPalette type="minMidMax" maxColor="#5A4575" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="0"></scale>
+        </format>
+        <format type="color" field="maxHotSpanDays">
+          <colorPalette type="minMidMax" maxColor="#DC4E41" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="0"></scale>
+        </format>
+        <format type="number" field="maxTotalDataSizeMB">
+          <option name="precision">0</option>
+        </format>
+        <format type="number" field="currentDBSizeMB">
+          <option name="precision">0</option>
+        </format>
+        <format type="color" field="index">
+          <colorPalette type="sharedList"></colorPalette>
+          <scale type="sharedCategory"></scale>
+        </format>
+      </table>
+    </panel>
+  </row>
+</form>
