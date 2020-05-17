@@ -1,0 +1,500 @@
+<form theme="light">
+  <label>RBAC Explorer</label>
+  <description>Observe adherence to RBAC model design. Monitor system access.</description>
+  <fieldset submitButton="false" autoRun="true"></fieldset>
+  <row>
+    <panel>
+      <html>
+        <h1 align="center" style="{background-color: lightgray !important;}">Explore Data Access</h1>
+      </html>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <single>
+        <search>
+          <query>| rest services/data/indexes
+| search title!="_*"
+| stats count</query>
+          <earliest>-60m@m</earliest>
+          <latest>now</latest>
+          <sampleRatio>1</sampleRatio>
+        </search>
+        <option name="colorBy">value</option>
+        <option name="colorMode">none</option>
+        <option name="drilldown">none</option>
+        <option name="numberPrecision">0</option>
+        <option name="rangeColors">["0x555","0x555"]</option>
+        <option name="rangeValues">[0]</option>
+        <option name="showSparkline">1</option>
+        <option name="showTrendIndicator">1</option>
+        <option name="trellis.enabled">0</option>
+        <option name="trellis.scales.shared">1</option>
+        <option name="trellis.size">medium</option>
+        <option name="trendColorInterpretation">standard</option>
+        <option name="trendDisplayMode">absolute</option>
+        <option name="underLabel">Non-internal Indexes</option>
+        <option name="unitPosition">after</option>
+        <option name="useColors">1</option>
+        <option name="useThousandSeparators">1</option>
+      </single>
+    </panel>
+    <panel>
+      <single>
+        <search>
+          <query>| rest splunk_server=local /services/authorization/roles 
+| stats count</query>
+          <earliest>-60m@m</earliest>
+          <latest>now</latest>
+          <sampleRatio>1</sampleRatio>
+        </search>
+        <option name="colorBy">value</option>
+        <option name="colorMode">none</option>
+        <option name="drilldown">none</option>
+        <option name="numberPrecision">0</option>
+        <option name="rangeColors">["0x006d9c","0x006d9c"]</option>
+        <option name="rangeValues">[0]</option>
+        <option name="showSparkline">1</option>
+        <option name="showTrendIndicator">1</option>
+        <option name="trellis.enabled">0</option>
+        <option name="trellis.scales.shared">1</option>
+        <option name="trellis.size">medium</option>
+        <option name="trendColorInterpretation">standard</option>
+        <option name="trendDisplayMode">absolute</option>
+        <option name="underLabel">Total Roles</option>
+        <option name="unitPosition">after</option>
+        <option name="useColors">1</option>
+        <option name="useThousandSeparators">1</option>
+      </single>
+    </panel>
+    <panel>
+      <single>
+        <search>
+          <query>| rest splunk_server=local /services/authorization/roles 
+| eval type=if(match(title,"^(?:admin|can_delete|power|splunk-system-role|user|ess_admin|ess_analyst|ess_user)$$"),"default","custom") 
+| where (type == "custom") 
+| stats count</query>
+          <earliest>0</earliest>
+          <sampleRatio>1</sampleRatio>
+        </search>
+        <option name="colorBy">value</option>
+        <option name="colorMode">none</option>
+        <option name="drilldown">none</option>
+        <option name="numberPrecision">0</option>
+        <option name="rangeColors">["0x006d9c","0x006d9c"]</option>
+        <option name="rangeValues">[0]</option>
+        <option name="showSparkline">1</option>
+        <option name="showTrendIndicator">1</option>
+        <option name="trellis.enabled">0</option>
+        <option name="trellis.scales.shared">1</option>
+        <option name="trellis.size">medium</option>
+        <option name="trendColorInterpretation">standard</option>
+        <option name="trendDisplayMode">absolute</option>
+        <option name="underLabel">Custom Roles</option>
+        <option name="unitPosition">after</option>
+        <option name="useColors">1</option>
+        <option name="useThousandSeparators">1</option>
+      </single>
+    </panel>
+    <panel>
+      <single>
+        <search>
+          <query>| rest /services/authentication/users splunk_server=local
+| search (roles=admin)
+| stats count</query>
+          <earliest>-60m@m</earliest>
+          <latest>now</latest>
+          <sampleRatio>1</sampleRatio>
+        </search>
+        <option name="colorBy">value</option>
+        <option name="colorMode">none</option>
+        <option name="drilldown">none</option>
+        <option name="numberPrecision">0</option>
+        <option name="rangeColors">["0x53a051","0x53a051"]</option>
+        <option name="rangeValues">[0]</option>
+        <option name="showSparkline">1</option>
+        <option name="showTrendIndicator">1</option>
+        <option name="trellis.enabled">0</option>
+        <option name="trellis.scales.shared">1</option>
+        <option name="trellis.size">medium</option>
+        <option name="trendColorInterpretation">standard</option>
+        <option name="trendDisplayMode">absolute</option>
+        <option name="underLabel">Admins</option>
+        <option name="unitPosition">after</option>
+        <option name="useColors">1</option>
+        <option name="useThousandSeparators">1</option>
+      </single>
+    </panel>
+    <panel>
+      <single>
+        <search>
+          <query>| rest /services/authentication/users splunk_server=local 
+| stats count</query>
+          <earliest>-60m@m</earliest>
+          <latest>now</latest>
+          <sampleRatio>1</sampleRatio>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="rangeColors">["0x53a051","0x53a051"]</option>
+        <option name="rangeValues">[0]</option>
+        <option name="underLabel">Total Users</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <title>By User and Role</title>
+      <input type="multiselect" token="userSrch_user_token" searchWhenChanged="true">
+        <label>Filter by User</label>
+        <choice value="*">All</choice>
+        <prefix>(</prefix>
+        <suffix>)</suffix>
+        <initialValue>*</initialValue>
+        <valuePrefix>title=</valuePrefix>
+        <delimiter> OR </delimiter>
+        <fieldForLabel>title</fieldForLabel>
+        <fieldForValue>title</fieldForValue>
+        <search>
+          <query>| rest /services/authentication/users
+| fields title</query>
+          <earliest>0</earliest>
+          <latest></latest>
+        </search>
+      </input>
+      <input type="multiselect" token="userSrch_role_token" searchWhenChanged="true">
+        <label>Filter by Role</label>
+        <choice value="*">All</choice>
+        <prefix>(</prefix>
+        <suffix>)</suffix>
+        <initialValue>*</initialValue>
+        <valuePrefix>roles=</valuePrefix>
+        <delimiter> OR </delimiter>
+        <fieldForLabel>title</fieldForLabel>
+        <fieldForValue>title</fieldForValue>
+        <search>
+          <query>| rest /services/authorization/roles
+| fields title</query>
+          <earliest>0</earliest>
+          <latest></latest>
+        </search>
+      </input>
+      <table>
+        <title>Queries REST /services/authentication/users for all roles assigned to a user.</title>
+        <search>
+          <query>| rest /services/authentication/users splunk_server=local 
+| search $userSrch_user_token$ $userSrch_role_token$
+| eval lastLogin=strftime(last_successful_login,"%m/%d/%y %H:%M")
+| eval timeSinceLastLogin=now()-last_successful_login
+| eval sinceLastLogin=case(timeSinceLastLogin &lt; 3600, round(timeSinceLastLogin / 60) . " min ago", timeSinceLastLogin &lt; 86400, round(timeSinceLastLogin / 3600) . " hours ago", 1=1, round(timeSinceLastLogin / 86400) . " days ago")
+| eval lastLogin=lastLogin." - ".sinceLastLogin
+| sort - lastLogin
+| rename title as userName 
+| rename realname as Name
+| fields Name userName email roles type lastLogin defaultApp</query>
+          <earliest>-60m@m</earliest>
+          <latest>now</latest>
+          <sampleRatio>1</sampleRatio>
+        </search>
+        <option name="count">20</option>
+        <option name="dataOverlayMode">none</option>
+        <option name="drilldown">none</option>
+        <option name="percentagesRow">false</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="rowNumbers">false</option>
+        <option name="totalsRow">false</option>
+        <option name="wrap">true</option>
+        <format type="color" field="Name">
+          <colorPalette type="sharedList"></colorPalette>
+          <scale type="sharedCategory"></scale>
+        </format>
+        <format type="color" field="roles">
+          <colorPalette type="map"></colorPalette>
+        </format>
+      </table>
+    </panel>
+    <panel>
+      <title>By Role and Index</title>
+      <input type="multiselect" token="role_token" searchWhenChanged="true">
+        <label>Filter by Role</label>
+        <prefix>(</prefix>
+        <suffix>)</suffix>
+        <valuePrefix>title=</valuePrefix>
+        <delimiter> OR </delimiter>
+        <fieldForLabel>title</fieldForLabel>
+        <fieldForValue>title</fieldForValue>
+        <search>
+          <query>| rest /services/authorization/roles
+| fields title</query>
+          <earliest>0</earliest>
+          <latest></latest>
+        </search>
+        <choice value="*">All</choice>
+        <initialValue>*</initialValue>
+      </input>
+      <table>
+        <title>Queries REST /services/authorization/roles for all indexes allowed by a role and its inherited roles.</title>
+        <search>
+          <query>| rest /services/authorization/roles splunk_server=local
+| search $role_token$
+| fields title srchIndexesAllowed srchIndexesDefault imported_roles imported_srchIndexesAllowed srchFilter defaultApp author updated
+| rename srchIndexesAllowed as idxAllowed 
+| rename srchIndexesDefault as idxDefault
+| rename imported_srchIndexesAllowed as idxAllowed_imported</query>
+          <earliest>-60m@m</earliest>
+          <latest>now</latest>
+          <sampleRatio>1</sampleRatio>
+        </search>
+        <option name="count">20</option>
+        <option name="dataOverlayMode">none</option>
+        <option name="drilldown">none</option>
+        <option name="percentagesRow">false</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="rowNumbers">false</option>
+        <option name="totalsRow">false</option>
+        <option name="wrap">true</option>
+        <format type="color" field="title">
+          <colorPalette type="sharedList"></colorPalette>
+          <scale type="sharedCategory"></scale>
+        </format>
+      </table>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <title>Allowed Index to Role Mapping</title>
+      <viz type="parallel_coordinates_app.parallel_coordinates">
+        <search>
+          <query>| rest /services/authorization/roles splunk_server=local
+| fields srchIndexesAllowed title
+| rename title as Role
+| rename srchIndexesAllowed as "Indexes Allowed"
+| mvexpand "Indexes Allowed"
+| fields - _mkv_child</query>
+          <earliest>0</earliest>
+          <latest></latest>
+          <sampleRatio>1</sampleRatio>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="trellis.enabled">0</option>
+        <option name="trellis.scales.shared">1</option>
+        <option name="trellis.size">medium</option>
+      </viz>
+    </panel>
+    <panel>
+      <title>Role Inheritance</title>
+      <viz type="sankey_diagram_app.sankey_diagram">
+        <title>Queries REST /services/authorization/roles for imported roles by role. Roles on the right inherit those to the left.</title>
+        <search>
+          <query>| rest /services/authorization/roles splunk_server=local 
+| fields title imported_roles 
+| mvexpand imported_roles 
+| stats count by imported_roles title</query>
+          <earliest>-60m@m</earliest>
+          <latest>now</latest>
+          <sampleRatio>1</sampleRatio>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="sankey_diagram_app.sankey_diagram.colorMode">categorical</option>
+        <option name="sankey_diagram_app.sankey_diagram.maxColor">#3fc77a</option>
+        <option name="sankey_diagram_app.sankey_diagram.minColor">#d93f3c</option>
+        <option name="sankey_diagram_app.sankey_diagram.numOfBins">6</option>
+        <option name="sankey_diagram_app.sankey_diagram.showBackwards">false</option>
+        <option name="sankey_diagram_app.sankey_diagram.showLabels">true</option>
+        <option name="sankey_diagram_app.sankey_diagram.showLegend">false</option>
+        <option name="sankey_diagram_app.sankey_diagram.showSelf">false</option>
+        <option name="sankey_diagram_app.sankey_diagram.showTooltip">true</option>
+        <option name="sankey_diagram_app.sankey_diagram.styleBackwards">false</option>
+        <option name="sankey_diagram_app.sankey_diagram.useColors">true</option>
+        <option name="trellis.enabled">0</option>
+        <option name="trellis.scales.shared">1</option>
+        <option name="trellis.size">medium</option>
+      </viz>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <html>
+        <h1 align="center">User and Role Modifications</h1>
+      </html>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <input type="time" token="userEdits_timerange" searchWhenChanged="true">
+        <label>Time Range</label>
+        <default>
+          <earliest>-7d@h</earliest>
+          <latest>now</latest>
+        </default>
+      </input>
+      <viz type="timeline_app.timeline">
+        <title>Queries audit log, separates by user object, and colors by operation. List operations not shown.</title>
+        <search>
+          <query>index=_audit info=* action=edit_user operation!=list info=granted
+| transaction user object operation
+| table _time object operation duration</query>
+          <earliest>$userEdits_timerange.earliest$</earliest>
+          <latest>$userEdits_timerange.latest$</latest>
+          <sampleRatio>1</sampleRatio>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="timeline_app.timeline.axisTimeFormat">DAYS</option>
+        <option name="timeline_app.timeline.colorMode">categorical</option>
+        <option name="timeline_app.timeline.maxColor">#DA5C5C</option>
+        <option name="timeline_app.timeline.minColor">#FFE8E8</option>
+        <option name="timeline_app.timeline.numOfBins">6</option>
+        <option name="timeline_app.timeline.tooltipTimeFormat">MINUTES</option>
+        <option name="timeline_app.timeline.useColors">1</option>
+        <option name="trellis.enabled">0</option>
+        <option name="trellis.scales.shared">1</option>
+        <option name="trellis.size">medium</option>
+      </viz>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <table>
+        <search>
+          <query>index=_audit action=edit* action=*roles* timestamp=* operation!=list object=*
+| transaction user operation object maxspan=1m
+| table user timestamp operation info object action
+| sort -timestamp</query>
+          <earliest>$userEdits_timerange.earliest$</earliest>
+          <latest>$userEdits_timerange.latest$</latest>
+          <sampleRatio>1</sampleRatio>
+        </search>
+        <option name="count">10</option>
+        <option name="dataOverlayMode">none</option>
+        <option name="drilldown">cell</option>
+        <option name="percentagesRow">false</option>
+        <option name="rowNumbers">false</option>
+        <option name="totalsRow">false</option>
+        <option name="wrap">true</option>
+        <format type="color" field="role">
+          <colorPalette type="sharedList"></colorPalette>
+          <scale type="sharedCategory"></scale>
+        </format>
+        <format type="color" field="operation">
+          <colorPalette type="sharedList"></colorPalette>
+          <scale type="sharedCategory"></scale>
+        </format>
+        <format type="color" field="object">
+          <colorPalette type="sharedList"></colorPalette>
+          <scale type="sharedCategory"></scale>
+        </format>
+        <format type="color" field="user">
+          <colorPalette type="sharedList"></colorPalette>
+          <scale type="sharedCategory"></scale>
+        </format>
+      </table>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <html>
+        <h1 align="center">Audit Searches</h1>
+      </html>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <input type="time" token="search_history_token" searchWhenChanged="true">
+        <label>Time Range</label>
+        <default>
+          <earliest>-15m</earliest>
+          <latest>now</latest>
+        </default>
+      </input>
+      <input type="multiselect" token="infoToken" searchWhenChanged="true">
+        <label>Status</label>
+        <choice value="*">All</choice>
+        <choice value="completed">completed</choice>
+        <choice value="canceled">canceled</choice>
+        <choice value="failed">failed</choice>
+        <choice value="granted">granted</choice>
+        <choice value="cancel">cancel</choice>
+        <choice value="finalize">finalize</choice>
+        <prefix>(</prefix>
+        <suffix>)</suffix>
+        <initialValue>completed,canceled,failed,cancel,finalize</initialValue>
+        <valuePrefix>info=</valuePrefix>
+        <delimiter> OR </delimiter>
+      </input>
+      <input type="multiselect" token="search_history_userToken" searchWhenChanged="true">
+        <label>Filter by User</label>
+        <choice value="*">All</choice>
+        <prefix>(</prefix>
+        <suffix>)</suffix>
+        <initialValue>*</initialValue>
+        <valuePrefix>user=</valuePrefix>
+        <delimiter> OR </delimiter>
+        <fieldForLabel>title</fieldForLabel>
+        <fieldForValue>title</fieldForValue>
+        <search>
+          <query>| rest /services/authentication/users
+| fields title
+| dedup title</query>
+          <earliest>0</earliest>
+          <latest></latest>
+        </search>
+      </input>
+      <table>
+        <title>Searches _audit index for search actions.</title>
+        <search>
+          <query>index=_audit action=search $infoToken$ $search_history_userToken$
+| eval exec_time=strftime(exec_time, "%m/%d/%y %H:%M:%S") 
+| table exec_time user roles search savedsearch_name info status total_run_time searched_buckets considered_events drop_count event_count result_count available_count decompressed_slices total_slices sourcetype_count__audittrail search_id
+| sort - exec_time</query>
+          <earliest>$search_history_token.earliest$</earliest>
+          <latest>$search_history_token.latest$</latest>
+          <sampleRatio>1</sampleRatio>
+        </search>
+        <option name="count">10</option>
+        <option name="dataOverlayMode">none</option>
+        <option name="drilldown">none</option>
+        <option name="percentagesRow">false</option>
+        <option name="rowNumbers">false</option>
+        <option name="totalsRow">false</option>
+        <option name="wrap">true</option>
+        <format type="color" field="info">
+          <colorPalette type="map">{"failed":#DC4E41,"completed":#53A051,"canceled":#708794}</colorPalette>
+        </format>
+        <format type="color" field="user">
+          <colorPalette type="sharedList"></colorPalette>
+          <scale type="sharedCategory"></scale>
+        </format>
+        <format type="number" field="event_count">
+          <option name="precision">0</option>
+        </format>
+        <format type="color" field="event_count">
+          <colorPalette type="minMidMax" maxColor="#006D9C" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="0"></scale>
+        </format>
+        <format type="color" field="drop_count">
+          <colorPalette type="minMidMax" maxColor="#DC4E41" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="0"></scale>
+        </format>
+        <format type="color" field="result_count">
+          <colorPalette type="minMidMax" maxColor="#006D9C" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="0"></scale>
+        </format>
+        <format type="color" field="total_run_time">
+          <colorPalette type="minMidMax" maxColor="#DC4E41" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="0"></scale>
+        </format>
+        <format type="color" field="searched_buckets">
+          <colorPalette type="minMidMax" maxColor="#DC4E41" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="0"></scale>
+        </format>
+        <format type="color" field="considered_events">
+          <colorPalette type="minMidMax" maxColor="#DC4E41" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="0"></scale>
+        </format>
+      </table>
+    </panel>
+  </row>
+</form>
