@@ -1,0 +1,342 @@
+<form theme="light">
+  <label>Data Summary</label>
+  <description>Summary of Indexes and Sourcetypes coming into Splunk. Designed for Splunk Admins.</description>
+  <search id="dailyAveragesBaseSearch">
+    <query>
+    index=_internal source=*license_usage.log TERM(type=Usage) $sourcetypeToken$
+| fields idx, b, st, h, _time
+| rename idx as index, st as sourcetype
+| search $indexToken$
+| eval h=if(len(h)=0 OR isnull(h),'(SQUASHED)',h)
+| bin _time span=1d
+| stats sum(b) AS b, dc(h) AS h by sourcetype index _time
+| stats avg(b) as avg_b, avg(h) AS Host_Count_per_Day by index sourcetype
+| eval Avg_MB_per_Day=round(avg_b/1024/1024,2)
+| eval Avg_GB_per_Day=round(avg_b/1024/1024/1024,2)
+| eval Avg_MB_per_Host=round(Avg_MB_per_Day/Host_Count_per_Day,2)
+| eval Host_Count_per_Day=round(Host_Count_per_Day,0)
+   </query>
+    <earliest>$timepicker.earliest$</earliest>
+    <latest>$timepicker.latest$</latest>
+  </search>
+  <fieldset submitButton="true" autoRun="true">
+    <input type="multiselect" token="indexToken" searchWhenChanged="false">
+      <label>Filter by Index</label>
+      <choice value="*">All</choice>
+      <choice value="* NOT index=&quot;_*&quot;">All non-internal</choice>
+      <prefix>(</prefix>
+      <suffix>)</suffix>
+      <valuePrefix>index=</valuePrefix>
+      <delimiter> OR </delimiter>
+      <fieldForLabel>title</fieldForLabel>
+      <fieldForValue>title</fieldForValue>
+      <search>
+        <query>|  rest services/data/indexes
+| fields title
+| dedup title</query>
+      </search>
+      <initialValue>* NOT index="_*"</initialValue>
+    </input>
+    <input type="multiselect" token="sourcetypeToken" searchWhenChanged="false">
+      <label>Filter by Sourcetype</label>
+      <choice value="*">All</choice>
+      <prefix>(</prefix>
+      <suffix>)</suffix>
+      <valuePrefix>sourcetype=</valuePrefix>
+      <delimiter>OR </delimiter>
+      <fieldForLabel>sourcetype</fieldForLabel>
+      <fieldForValue>sourcetype</fieldForValue>
+      <search>
+        <query>|  metadata type=sourcetypes
+| fields sourcetype
+| dedup sourcetype</query>
+        <earliest>-1y@y</earliest>
+        <latest>@y</latest>
+      </search>
+      <initialValue>*</initialValue>
+    </input>
+    <input type="time" token="timepicker" searchWhenChanged="false">
+      <label>Time Range</label>
+      <default>
+        <earliest>-24h@h</earliest>
+        <latest>now</latest>
+      </default>
+    </input>
+  </fieldset>
+  <row depends="$hide$">
+    <panel>
+      <!--creates an HTML panel in order to create an inline style sheet-->
+      <html>
+        <style>
+      //<!--this creates a solid line border on the top and sides of the element with the id=row1-->
+          #daily_averages_header {
+              align: center !important ;
+              background-color: lightgray !important;
+                        }
+        </style>
+      </html>
+    </panel>
+  </row>
+  <row>
+    <panel id="daily_averages_header">
+      <html>
+        <h1 align="center">
+          Average Daily Data Ingestion
+        </h1>
+      </html>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <viz type="sankey_diagram_app.sankey_diagram">
+        <title>Top 30 sourcetypes by license according to license log.</title>
+        <search base="dailyAveragesBaseSearch">
+          <query>| stats avg(avg_b) avg(Avg_MB_per_Day) avg(Avg_GB_per_Day) by sourcetype index
+| sort - avg_b
+| head 30</query>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="trellis.enabled">0</option>
+        <option name="trellis.scales.shared">1</option>
+        <option name="trellis.size">medium</option>
+      </viz>
+    </panel>
+    <panel>
+      <table>
+        <title>license statistics by index and sourcetype.</title>
+        <search base="dailyAveragesBaseSearch">
+          <query>| table index, sourcetype, Avg_MB_per_Day, Avg_GB_per_Day, Host_Count_per_Day, Avg_MB_per_Host 
+| sort - Avg_MB_per_Day</query>
+        </search>
+        <option name="count">15</option>
+        <option name="dataOverlayMode">none</option>
+        <option name="drilldown">none</option>
+        <option name="link.exportResults.visible">0</option>
+        <option name="link.inspectSearch.visible">0</option>
+        <option name="link.openPivot.visible">0</option>
+        <option name="link.openSearch.visible">0</option>
+        <option name="percentagesRow">false</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="refresh.link.visible">0</option>
+        <option name="rowNumbers">true</option>
+        <option name="totalsRow">false</option>
+        <option name="wrap">true</option>
+        <format type="color" field="idx">
+          <colorPalette type="sharedList"></colorPalette>
+          <scale type="sharedCategory"></scale>
+        </format>
+        <format type="color" field="Host_Count_per_Day">
+          <colorPalette type="minMidMax" maxColor="#53A051" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="0"></scale>
+        </format>
+        <format type="color" field="Avg_MB_per_Host">
+          <colorPalette type="minMidMax" maxColor="#53A051" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="0"></scale>
+        </format>
+        <format type="color" field="Avg_MB_per_Day">
+          <colorPalette type="minMidMax" maxColor="#006D9C" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="0"></scale>
+        </format>
+        <format type="color" field="Avg_GB_per_Day">
+          <colorPalette type="minMidMax" maxColor="#006D9C" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="0"></scale>
+        </format>
+        <format type="number" field="Avg_MB_per_Day">
+          <option name="unit">MB</option>
+        </format>
+        <format type="number" field="Avg_GB_per_Day">
+          <option name="unit">GB</option>
+        </format>
+        <format type="color" field="index">
+          <colorPalette type="sharedList"></colorPalette>
+          <scale type="sharedCategory"></scale>
+        </format>
+        <format type="color" field="app">
+          <colorPalette type="sharedList"></colorPalette>
+          <scale type="sharedCategory"></scale>
+        </format>
+        <format type="color" field="sourcetype">
+          <colorPalette type="sharedList"></colorPalette>
+          <scale type="sharedCategory"></scale>
+        </format>
+        <format type="color" field="st">
+          <colorPalette type="sharedList"></colorPalette>
+          <scale type="sharedCategory"></scale>
+        </format>
+      </table>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <input type="dropdown" token="license_splitBy" searchWhenChanged="true">
+        <label>Split By</label>
+        <choice value="index">index</choice>
+        <choice value="sourcetype">sourcetype</choice>
+        <default>index</default>
+      </input>
+      <chart>
+        <title>License usage over time, according to license log</title>
+        <search>
+          <query>index=_internal source=*license_usage.log type=Usage pool=* 
+| fields idx st b 
+| rename idx as index, st as sourcetype
+| search $indexToken$ 
+| search $sourcetypeToken$ 
+| eval MBs=round(b/1024/1024,2) 
+| timechart span=1d sum(MBs) by $license_splitBy$</query>
+          <earliest>$timepicker.earliest$</earliest>
+          <latest>$timepicker.latest$</latest>
+        </search>
+        <option name="charting.axisLabelsX.majorLabelStyle.overflowMode">ellipsisNone</option>
+        <option name="charting.axisLabelsX.majorLabelStyle.rotation">-45</option>
+        <option name="charting.axisTitleX.visibility">collapsed</option>
+        <option name="charting.axisTitleY.visibility">visible</option>
+        <option name="charting.axisTitleY2.visibility">visible</option>
+        <option name="charting.axisX.abbreviation">none</option>
+        <option name="charting.axisX.scale">linear</option>
+        <option name="charting.axisY.abbreviation">none</option>
+        <option name="charting.axisY.scale">linear</option>
+        <option name="charting.axisY2.abbreviation">none</option>
+        <option name="charting.axisY2.enabled">0</option>
+        <option name="charting.axisY2.scale">inherit</option>
+        <option name="charting.chart">column</option>
+        <option name="charting.chart.bubbleMaximumSize">50</option>
+        <option name="charting.chart.bubbleMinimumSize">10</option>
+        <option name="charting.chart.bubbleSizeBy">area</option>
+        <option name="charting.chart.nullValueMode">zero</option>
+        <option name="charting.chart.showDataLabels">minmax</option>
+        <option name="charting.chart.sliceCollapsingThreshold">0.01</option>
+        <option name="charting.chart.stackMode">stacked</option>
+        <option name="charting.chart.style">shiny</option>
+        <option name="charting.drilldown">none</option>
+        <option name="charting.layout.splitSeries">0</option>
+        <option name="charting.layout.splitSeries.allowIndependentYRanges">0</option>
+        <option name="charting.legend.labelStyle.overflowMode">ellipsisMiddle</option>
+        <option name="charting.legend.mode">standard</option>
+        <option name="charting.legend.placement">right</option>
+        <option name="charting.lineWidth">2</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="trellis.enabled">0</option>
+        <option name="trellis.scales.shared">1</option>
+        <option name="trellis.size">medium</option>
+      </chart>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <html encoded="1">&lt;h1 align="center"&gt;Data Over Time&lt;/h1&gt;</html>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <title>Events</title>
+      <input type="dropdown" token="splitBy_eventsOverTime" searchWhenChanged="true">
+        <label>Split By</label>
+        <choice value="index">index</choice>
+        <choice value="sourcetype">sourcetype</choice>
+        <default>index</default>
+      </input>
+      <chart>
+        <title>tstats query returning total event count in all events indexes.</title>
+        <search>
+          <query>| tstats count where index=* by index, sourcetype, _time 
+| search $indexToken$ 
+| search $sourcetypeToken$ 
+| timechart count by $splitBy_eventsOverTime$</query>
+          <earliest>$timepicker.earliest$</earliest>
+          <latest>$timepicker.latest$</latest>
+          <sampleRatio>1</sampleRatio>
+        </search>
+        <option name="charting.axisLabelsX.majorLabelStyle.overflowMode">ellipsisNone</option>
+        <option name="charting.axisLabelsX.majorLabelStyle.rotation">-45</option>
+        <option name="charting.axisTitleX.visibility">visible</option>
+        <option name="charting.axisTitleY.visibility">visible</option>
+        <option name="charting.axisTitleY2.visibility">visible</option>
+        <option name="charting.axisX.abbreviation">none</option>
+        <option name="charting.axisX.scale">linear</option>
+        <option name="charting.axisY.abbreviation">none</option>
+        <option name="charting.axisY.scale">linear</option>
+        <option name="charting.axisY2.abbreviation">none</option>
+        <option name="charting.axisY2.enabled">1</option>
+        <option name="charting.axisY2.scale">inherit</option>
+        <option name="charting.chart">area</option>
+        <option name="charting.chart.bubbleMaximumSize">50</option>
+        <option name="charting.chart.bubbleMinimumSize">10</option>
+        <option name="charting.chart.bubbleSizeBy">area</option>
+        <option name="charting.chart.nullValueMode">gaps</option>
+        <option name="charting.chart.overlayFields">"dc(host): *"</option>
+        <option name="charting.chart.showDataLabels">none</option>
+        <option name="charting.chart.sliceCollapsingThreshold">0.01</option>
+        <option name="charting.chart.stackMode">stacked</option>
+        <option name="charting.chart.style">shiny</option>
+        <option name="charting.drilldown">none</option>
+        <option name="charting.layout.splitSeries">0</option>
+        <option name="charting.layout.splitSeries.allowIndependentYRanges">0</option>
+        <option name="charting.legend.labelStyle.overflowMode">ellipsisMiddle</option>
+        <option name="charting.legend.mode">standard</option>
+        <option name="charting.legend.placement">bottom</option>
+        <option name="charting.lineWidth">2</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="trellis.enabled">0</option>
+        <option name="trellis.scales.shared">1</option>
+        <option name="trellis.size">medium</option>
+      </chart>
+    </panel>
+    <panel>
+      <title>Metrics</title>
+      <input type="dropdown" token="splitBy_metrics" searchWhenChanged="true">
+        <label>Split By</label>
+        <choice value="index">index</choice>
+        <choice value="sourcetype">sourcetype</choice>
+        <choice value="metric_name">metric name</choice>
+        <default>index</default>
+      </input>
+      <chart>
+        <search>
+          <query>| mstats count span=1h where index=* metric_name=* BY index, metric_name, sourcetype 
+| search $indexToken$ 
+| search $sourcetypeToken$ 
+| eval reading=1 
+| timechart sum(reading) as readings by $splitBy_metrics$</query>
+          <earliest>$timepicker.earliest$</earliest>
+          <latest>$timepicker.latest$</latest>
+          <sampleRatio>1</sampleRatio>
+        </search>
+        <option name="charting.axisLabelsX.majorLabelStyle.overflowMode">ellipsisNone</option>
+        <option name="charting.axisLabelsX.majorLabelStyle.rotation">0</option>
+        <option name="charting.axisTitleX.visibility">visible</option>
+        <option name="charting.axisTitleY.text">Readings</option>
+        <option name="charting.axisTitleY.visibility">visible</option>
+        <option name="charting.axisTitleY2.visibility">visible</option>
+        <option name="charting.axisX.abbreviation">none</option>
+        <option name="charting.axisX.scale">linear</option>
+        <option name="charting.axisY.abbreviation">none</option>
+        <option name="charting.axisY.scale">linear</option>
+        <option name="charting.axisY2.abbreviation">none</option>
+        <option name="charting.axisY2.enabled">0</option>
+        <option name="charting.axisY2.scale">inherit</option>
+        <option name="charting.chart">area</option>
+        <option name="charting.chart.bubbleMaximumSize">50</option>
+        <option name="charting.chart.bubbleMinimumSize">10</option>
+        <option name="charting.chart.bubbleSizeBy">area</option>
+        <option name="charting.chart.nullValueMode">zero</option>
+        <option name="charting.chart.showDataLabels">none</option>
+        <option name="charting.chart.sliceCollapsingThreshold">0.01</option>
+        <option name="charting.chart.stackMode">stacked</option>
+        <option name="charting.chart.style">shiny</option>
+        <option name="charting.drilldown">none</option>
+        <option name="charting.layout.splitSeries">0</option>
+        <option name="charting.layout.splitSeries.allowIndependentYRanges">0</option>
+        <option name="charting.legend.labelStyle.overflowMode">ellipsisMiddle</option>
+        <option name="charting.legend.mode">standard</option>
+        <option name="charting.legend.placement">bottom</option>
+        <option name="charting.lineWidth">2</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="trellis.enabled">0</option>
+        <option name="trellis.scales.shared">1</option>
+        <option name="trellis.size">medium</option>
+      </chart>
+    </panel>
+  </row>
+</form>
