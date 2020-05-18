@@ -59,12 +59,12 @@
         <title>dbinspect query returning bucket metrics by bucket state and index.</title>
         <search>
           <query>| dbinspect index=* 
-| fields bucketId index state eventCount startEpoch endEpoch hostCount rawSize sizeOnDiskMB sourceCount sourceTypeCount 
+| fields bucketId index state eventCount startEpoch endEpoch hostCount rawSize sizeOnDiskMB sourceCount sourceTypeCount splunk_server
 | eval rawMB=((rawSize/1024)/1024) 
 | eval rawGB=rawMB/1024 
 | eval sizeOnDiskGB=sizeOnDiskMB/1024 
 | eval sort_field=case(state="hot",1,state="warm",2,state="cold",3) 
-| stats dc(bucketId) as "Number of Buckets" sum(eventCount) as "Total Events" min(startEpoch) as earliestData max(endEpoch) as latestData avg(sourceCount) as "Avg Sources per Bucket" avg(sourceTypeCount) as "Avg Sourcetypes per Bucket" sum(sizeOnDiskMB) as "Compressed MB on Disk" sum(sizeOnDiskGB) as "Compressed GB on Disk" sum(rawMB) as "Raw MB" sum(rawGB) as "Raw GB" by index, state, sort_field 
+| stats dc(bucketId) as "Number of Buckets" sum(eventCount) as "Total Events" min(startEpoch) as earliestData max(endEpoch) as latestData avg(sourceCount) as "Avg Sources per Bucket" avg(sourceTypeCount) as "Avg Sourcetypes per Bucket" sum(sizeOnDiskMB) as "Compressed MB on Disk" sum(sizeOnDiskGB) as "Compressed GB on Disk" sum(rawMB) as "Raw MB" sum(rawGB) as "Raw GB" by index, state, sort_field, splunk_server 
 | eval spanHours=(((latestData-earliestData)/60)/60) 
 | eval spanDays=spanHours/24 
 | eval "Earliest Data"=strftime(earliestData,"%m/%d/%y %H:%M") 
@@ -72,7 +72,7 @@
 | search $bucket_index_token$ 
 | search $bucket_state_token$ 
 | sort index, sort_field, -"Compressed MB on Disk" 
-| table index state "Earliest Data" "Latest Data" spanHours spanDays "Number of Buckets" "Total Events" "Avg Sources per Bucket" "Avg Sourcetypes per Bucket" "Compressed MB on Disk" "Compressed GB on Disk" "Raw MB" "Raw GB"</query>
+| table index splunk_server state "Earliest Data" "Latest Data" spanHours spanDays "Number of Buckets" "Total Events" "Avg Sources per Bucket" "Avg Sourcetypes per Bucket" "Compressed MB on Disk" "Compressed GB on Disk" "Raw MB" "Raw GB"</query>
           <earliest>$bucket_timepicker.earliest$</earliest>
           <latest>$bucket_timepicker.latest$</latest>
           <sampleRatio>1</sampleRatio>
@@ -239,7 +239,7 @@
 | eval frozenTimePeriodInYears=frozenTimePeriodInDays/365 
 | eval maxHotSpanDays=maxHotSpanSecs/86400 
 | rename title as index
-| table index eai:acl.app frozenTimePeriodInDays frozenTimePeriodInYears currentDBSizeMB maxTotalDataSizeMB maxHotSpanDays maxHotBuckets maxWarmDBCount maxDataSize homePath.maxDataSizeMB coldPath.maxDataSizeMB 
+| table index eai:acl.app splunk_server frozenTimePeriodInDays frozenTimePeriodInYears currentDBSizeMB maxTotalDataSizeMB maxHotSpanDays maxHotBuckets maxWarmDBCount maxDataSize homePath.maxDataSizeMB coldPath.maxDataSizeMB 
 | search $bucket_index_token$</query>
           <earliest>-24h@h</earliest>
           <latest>now</latest>
