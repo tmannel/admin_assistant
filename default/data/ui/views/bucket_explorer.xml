@@ -1,11 +1,11 @@
 <form theme="light">
   <label>Bucket Explorer</label>
-  <description>Bucket size, replication, retention, indexing lag, etc.</description>
-  <fieldset submitButton="true" autoRun="false">
+  <description>== HOW TO USE ==  Filter the entire dashboard using the inputs at the top with the submit button. Individual dashboards have additional inputs.</description>
+  <fieldset submitButton="true" autoRun="true">
     <input type="time" token="bucket_timepicker" searchWhenChanged="false">
       <label>Bucket Last Modified</label>
       <default>
-        <earliest>-7d@h</earliest>
+        <earliest>-24h@h</earliest>
         <latest>now</latest>
       </default>
     </input>
@@ -29,20 +29,112 @@
       <initialValue>* NOT index="_*"</initialValue>
     </input>
   </fieldset>
-  <row depends="$hide$">
+  <row>
     <panel>
-      <!--creates an HTML panel in order to create an inline style sheet-->
-      <html>
-        <style>
-      //<!--this creates a solid line border on the top and sides of the element with the id=row1-->{}
-          #panel_bucketMetrics {
-              padding-bottom: 20px !important;}
-        </style>
-      </html>
+      <html encoded="1">&lt;h1 align="center" style="{background-color: lightgray !important;}"&gt;Explore Buckets&lt;/h1&gt;</html>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <title>Hot to Warm Rolls Over Time</title>
+      <input type="link" token="rolls_splitBy" searchWhenChanged="true">
+        <label>Split By</label>
+        <choice value="index">index</choice>
+        <choice value="splunk_server">splunk_server</choice>
+        <default>index</default>
+      </input>
+      <chart>
+        <title>queries HotBucketRoller component in splunkd.log</title>
+        <search>
+          <query>index=_internal sourcetype=splunkd source="*splunkd.log" component=HotBucketRoller
+| fields _time idx splunk_server
+| rename idx as index
+| search $bucket_index_token$
+| timechart count by $rolls_splitBy$</query>
+          <earliest>$bucket_timepicker.earliest$</earliest>
+          <latest>$bucket_timepicker.latest$</latest>
+          <sampleRatio>1</sampleRatio>
+        </search>
+        <option name="charting.axisLabelsX.majorLabelStyle.overflowMode">ellipsisNone</option>
+        <option name="charting.axisLabelsX.majorLabelStyle.rotation">0</option>
+        <option name="charting.axisTitleX.visibility">visible</option>
+        <option name="charting.axisTitleY.visibility">visible</option>
+        <option name="charting.axisTitleY2.visibility">visible</option>
+        <option name="charting.axisX.abbreviation">none</option>
+        <option name="charting.axisX.scale">linear</option>
+        <option name="charting.axisY.abbreviation">none</option>
+        <option name="charting.axisY.scale">linear</option>
+        <option name="charting.axisY2.abbreviation">none</option>
+        <option name="charting.axisY2.enabled">0</option>
+        <option name="charting.axisY2.scale">inherit</option>
+        <option name="charting.chart">column</option>
+        <option name="charting.chart.bubbleMaximumSize">50</option>
+        <option name="charting.chart.bubbleMinimumSize">10</option>
+        <option name="charting.chart.bubbleSizeBy">area</option>
+        <option name="charting.chart.nullValueMode">gaps</option>
+        <option name="charting.chart.showDataLabels">none</option>
+        <option name="charting.chart.sliceCollapsingThreshold">0.01</option>
+        <option name="charting.chart.stackMode">stacked</option>
+        <option name="charting.chart.style">shiny</option>
+        <option name="charting.drilldown">none</option>
+        <option name="charting.layout.splitSeries">0</option>
+        <option name="charting.layout.splitSeries.allowIndependentYRanges">0</option>
+        <option name="charting.legend.labelStyle.overflowMode">ellipsisMiddle</option>
+        <option name="charting.legend.mode">standard</option>
+        <option name="charting.legend.placement">right</option>
+        <option name="charting.lineWidth">2</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="trellis.enabled">0</option>
+        <option name="trellis.scales.shared">1</option>
+        <option name="trellis.size">medium</option>
+      </chart>
+    </panel>
+    <panel>
+      <title>Hot to Warm Rolls</title>
+      <table>
+        <search>
+          <query>index=_internal sourcetype=splunkd source="*splunkd.log" component=HotBucketRoller
+| rename idx as index
+| search $bucket_index_token$
+| table index _time splunk_server size from to bid event_message
+| sort - _time</query>
+          <earliest>$bucket_timepicker.earliest$</earliest>
+          <latest>$bucket_timepicker.latest$</latest>
+          <sampleRatio>1</sampleRatio>
+        </search>
+        <option name="count">10</option>
+        <option name="dataOverlayMode">none</option>
+        <option name="drilldown">none</option>
+        <option name="percentagesRow">false</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="rowNumbers">false</option>
+        <option name="totalsRow">false</option>
+        <option name="wrap">false</option>
+        <format type="color" field="idx">
+          <colorPalette type="sharedList"></colorPalette>
+          <scale type="sharedCategory"></scale>
+        </format>
+        <format type="color" field="size">
+          <colorPalette type="minMidMax" maxColor="#DC4E41" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="0"></scale>
+        </format>
+        <format type="color" field="splunk_server">
+          <colorPalette type="sharedList"></colorPalette>
+          <scale type="sharedCategory"></scale>
+        </format>
+        <format type="color" field="index">
+          <colorPalette type="sharedList"></colorPalette>
+          <scale type="sharedCategory"></scale>
+        </format>
+        <format type="number" field="size">
+          <option name="precision">0</option>
+        </format>
+      </table>
     </panel>
   </row>
   <row>
     <panel id="panel_bucketMetrics">
+      <title>Bucket Statistics</title>
       <input type="multiselect" token="bucket_state_token" searchWhenChanged="true">
         <label>State</label>
         <choice value="hot">hot</choice>
@@ -77,7 +169,7 @@
           <latest>$bucket_timepicker.latest$</latest>
           <sampleRatio>1</sampleRatio>
         </search>
-        <option name="count">20</option>
+        <option name="count">10</option>
         <option name="dataOverlayMode">none</option>
         <option name="drilldown">none</option>
         <option name="percentagesRow">false</option>
@@ -196,34 +288,43 @@
           <option name="unit">d</option>
         </format>
         <format type="color" field="Compressed MB on Disk">
-          <colorPalette type="minMidMax" maxColor="#006D9C" minColor="#FFFFFF"></colorPalette>
+          <colorPalette type="minMidMax" maxColor="#5A4575" minColor="#FFFFFF"></colorPalette>
           <scale type="minMidMax" minValue="0"></scale>
         </format>
         <format type="number" field="Compressed MB on Disk">
           <option name="unit">MB</option>
         </format>
         <format type="color" field="Compressed GB on Disk">
-          <colorPalette type="minMidMax" maxColor="#006D9C" minColor="#FFFFFF"></colorPalette>
+          <colorPalette type="minMidMax" maxColor="#5A4575" minColor="#FFFFFF"></colorPalette>
           <scale type="minMidMax" minValue="0"></scale>
         </format>
         <format type="number" field="Compressed GB on Disk">
           <option name="unit">GB</option>
         </format>
         <format type="color" field="Raw MB">
-          <colorPalette type="minMidMax" maxColor="#006D9C" minColor="#FFFFFF"></colorPalette>
+          <colorPalette type="minMidMax" maxColor="#708794" minColor="#FFFFFF"></colorPalette>
           <scale type="minMidMax" minValue="0"></scale>
         </format>
         <format type="number" field="Raw MB">
           <option name="unit">MB</option>
         </format>
         <format type="color" field="Raw GB">
-          <colorPalette type="minMidMax" maxColor="#006D9C" minColor="#FFFFFF"></colorPalette>
+          <colorPalette type="minMidMax" maxColor="#708794" minColor="#FFFFFF"></colorPalette>
           <scale type="minMidMax" minValue="0"></scale>
         </format>
         <format type="number" field="Raw GB">
           <option name="unit">GB</option>
         </format>
+        <format type="color" field="splunk_server">
+          <colorPalette type="sharedList"></colorPalette>
+          <scale type="sharedCategory"></scale>
+        </format>
       </table>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <html encoded="1">&lt;h1 align="center" style="{background-color: lightgray !important;}"&gt;View Index Configuration&lt;/h1&gt;</html>
     </panel>
   </row>
   <row>
@@ -231,16 +332,15 @@
       <table>
         <title>REST API query returning configuration settings for each index as defined in indexes.conf files.</title>
         <search>
-          <query>| rest splunk_server=local /services/data/indexes 
-| eval minTime=strftime(minTime,"%M-%D-%y %H:%M") 
-| eval maxTime=strptime(maxTime,"%FT%T%Z") 
-| eval frozenTimePeriodInHours=frozenTimePeriodInSecs/3600 
-| eval frozenTimePeriodInDays=frozenTimePeriodInHours/24 
-| eval frozenTimePeriodInYears=frozenTimePeriodInDays/365 
+          <query>| rest /services/data/indexes 
+| eval frzHours=frozenTimePeriodInSecs/3600 
+| eval frzDays=frzHours/24 
+| eval frzYears=frzDays/365 
 | eval maxHotSpanDays=maxHotSpanSecs/86400 
 | rename title as index
-| table index eai:acl.app splunk_server frozenTimePeriodInDays frozenTimePeriodInYears currentDBSizeMB maxTotalDataSizeMB maxHotSpanDays maxHotBuckets maxWarmDBCount maxDataSize homePath.maxDataSizeMB coldPath.maxDataSizeMB 
-| search $bucket_index_token$</query>
+| table eai:acl.app index datatype totalEventCount minTime maxTime splunk_server repFactor maxMemMB frozenTimePeriodInSecs frzDays frzYears maxHotSpanDays currentDBSizeMB maxTotalDataSizeMB maxHotBuckets maxWarmDBCount maxDataSize homePath.maxDataSizeMB coldPath.maxDataSizeMB 
+| search $bucket_index_token$
+| sort - maxTime</query>
           <earliest>-24h@h</earliest>
           <latest>now</latest>
           <sampleRatio>1</sampleRatio>
@@ -302,6 +402,53 @@
         <format type="color" field="index">
           <colorPalette type="sharedList"></colorPalette>
           <scale type="sharedCategory"></scale>
+        </format>
+        <format type="color" field="splunk_server">
+          <colorPalette type="sharedList"></colorPalette>
+          <scale type="sharedCategory"></scale>
+        </format>
+        <format type="color" field="eai:acl.app">
+          <colorPalette type="sharedList"></colorPalette>
+          <scale type="sharedCategory"></scale>
+        </format>
+        <format type="color" field="maxDataSize">
+          <colorPalette type="sharedList"></colorPalette>
+          <scale type="sharedCategory"></scale>
+        </format>
+        <format type="color" field="maxMemMB">
+          <colorPalette type="minMidMax" maxColor="#708794" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="0"></scale>
+        </format>
+        <format type="color" field="totalEventCount">
+          <colorPalette type="minMidMax" maxColor="#294E70" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="0"></scale>
+        </format>
+        <format type="number" field="totalEventCount">
+          <option name="precision">0</option>
+        </format>
+        <format type="color" field="frzYears">
+          <colorPalette type="minMidMax" maxColor="#006D9C" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="0"></scale>
+        </format>
+        <format type="number" field="frzYears">
+          <option name="precision">1</option>
+          <option name="unit">y</option>
+        </format>
+        <format type="color" field="frzDays">
+          <colorPalette type="minMidMax" maxColor="#006D9C" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="0"></scale>
+        </format>
+        <format type="number" field="frzDays">
+          <option name="precision">0</option>
+          <option name="unit">d</option>
+        </format>
+        <format type="number" field="maxHotSpanDays">
+          <option name="precision">0</option>
+          <option name="unit">d</option>
+        </format>
+        <format type="color" field="frozenTimePeriodInSecs">
+          <colorPalette type="minMidMax" maxColor="#006D9C" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax"></scale>
         </format>
       </table>
     </panel>
