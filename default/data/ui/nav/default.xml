@@ -1,11 +1,14 @@
 <nav search_view="search">
+  <view name="home" />
   <view name="data_summary" />
   <view name="rbac_explorer" />
-  <collection label="System Adoption">
+  <collection label="System Adoption" >
     <view name="data_onboarding" />
+    <view name="user_adoption" />
     <view name="dashboard_adoption"/>
+    <view name="alert_adoption"/>
   </collection>
-  <collection label="Resource Utilization">
+  <collection label="Deployment Monitoring">
     <view name="bucket_explorer"/>
   </collection>
   <collection label="Explore Content">
