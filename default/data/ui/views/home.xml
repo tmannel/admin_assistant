@@ -36,11 +36,11 @@
     <panel>
       <html>
         <h3>Who should use this app?</h3>
-<p>This app is designed for DAFI users with the <code>admin</code> role and/or its associated capabilities.</p>
+<p>This app is designed for users with the <code>admin</code> role and/or its associated capabilities.</p>
 <p>Navigate using the menu at the top to analyze the Splunk deployment.</p>
 <p>Searches return metrics from Splunk's <code>_internal</code> and <code>_audit</code> indexes, the Splunk <code>REST</code> API, and more.</p>
-<h3>What can I find out using the DAFI app?</h3>
-<p>Splunk provides an immense amount of data on itself. The DAFI app is intended to serve as a central location for key project metrics around security, system adoption, and resource utilization. Use cases are generally centered around the following questions:</p>
+<h3>What can I find out using the Admin Assistant app?</h3>
+<p>Splunk provides an immense amount of data on itself. The Admin Assistant app is intended to serve as a central location for key project metrics around security, system adoption, and resource utilization. Use cases are generally centered around the following questions:</p>
 <ul>How are users provided access to data?</ul>
 <ul>Who searches the data and what do they search?</ul>
 <ul>Are searches performant?</ul>
