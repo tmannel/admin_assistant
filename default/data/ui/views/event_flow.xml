@@ -1,0 +1,156 @@
+<form theme="dark">
+  <label>Event Flow</label>
+  <description>Explore data in event indexes. All inputs require  the SUBMIT button.</description>
+  <fieldset submitButton="true" autoRun="true">
+    <input type="time" token="dataLoss_timepicker">
+      <label>Time Range</label>
+      <default>
+        <earliest>-60m@m</earliest>
+        <latest>now</latest>
+      </default>
+    </input>
+    <input type="dropdown" token="indexToken">
+      <label>Filter by Index</label>
+      <choice value="*">All</choice>
+      <fieldForLabel>title</fieldForLabel>
+      <fieldForValue>title</fieldForValue>
+      <search>
+        <query>|  rest services/data/indexes</query>
+        <earliest>-24h@h</earliest>
+        <latest>now</latest>
+      </search>
+      <prefix>index=</prefix>
+      <default>*</default>
+    </input>
+    <input type="multiselect" token="sourcetypeToken">
+      <label>Filter by Sourcetype</label>
+      <choice value="*">All</choice>
+      <default>*</default>
+      <fieldForLabel>sourcetype</fieldForLabel>
+      <fieldForValue>sourcetype</fieldForValue>
+      <search>
+        <query>| metadata type=sourcetypes
+| fields sourcetype</query>
+        <earliest>0</earliest>
+        <latest></latest>
+      </search>
+      <prefix>(</prefix>
+      <suffix>)</suffix>
+      <valuePrefix>sourcetype=</valuePrefix>
+      <delimiter> OR </delimiter>
+    </input>
+    <input type="text" token="hostToken">
+      <label>Filter by Host</label>
+      <default>*</default>
+      <prefix>host=</prefix>
+    </input>
+    <input type="text" token="splunk_serverToken" searchWhenChanged="true">
+      <label>Filter by splunk_server</label>
+      <default>*</default>
+      <prefix>splunk_server=</prefix>
+    </input>
+  </fieldset>
+  <row>
+    <panel>
+      <chart>
+        <title>metadata summary</title>
+        <search>
+          <query>| tstats summariesonly=t count where index=* by _time index sourcetype host source splunk_server
+| search $indexToken$ AND $sourcetypeToken$ AND $hostToken$ AND $splunk_serverToken$
+| timechart  dc(index) as "Indexes Seen" dc(sourcetype) as "Sourcetypes Seen" dc(host) as "Hosts Seen" dc(source) as "Sources Seen" dc(splunk_server) as "Indexers with Buckets" count as "Total Events"</query>
+          <earliest>$dataLoss_timepicker.earliest$</earliest>
+          <latest>$dataLoss_timepicker.latest$</latest>
+          <sampleRatio>1</sampleRatio>
+        </search>
+        <option name="charting.axisLabelsX.majorLabelStyle.overflowMode">ellipsisNone</option>
+        <option name="charting.axisLabelsX.majorLabelStyle.rotation">-45</option>
+        <option name="charting.axisTitleX.visibility">visible</option>
+        <option name="charting.axisTitleY.visibility">collapsed</option>
+        <option name="charting.axisTitleY2.visibility">visible</option>
+        <option name="charting.axisX.abbreviation">none</option>
+        <option name="charting.axisX.scale">linear</option>
+        <option name="charting.axisY.abbreviation">auto</option>
+        <option name="charting.axisY.scale">linear</option>
+        <option name="charting.axisY2.abbreviation">none</option>
+        <option name="charting.axisY2.enabled">0</option>
+        <option name="charting.axisY2.scale">inherit</option>
+        <option name="charting.chart">area</option>
+        <option name="charting.chart.bubbleMaximumSize">50</option>
+        <option name="charting.chart.bubbleMinimumSize">10</option>
+        <option name="charting.chart.bubbleSizeBy">area</option>
+        <option name="charting.chart.nullValueMode">connect</option>
+        <option name="charting.chart.showDataLabels">all</option>
+        <option name="charting.chart.sliceCollapsingThreshold">0.01</option>
+        <option name="charting.chart.stackMode">default</option>
+        <option name="charting.chart.style">shiny</option>
+        <option name="charting.drilldown">none</option>
+        <option name="charting.layout.splitSeries">1</option>
+        <option name="charting.layout.splitSeries.allowIndependentYRanges">1</option>
+        <option name="charting.legend.labelStyle.overflowMode">ellipsisMiddle</option>
+        <option name="charting.legend.mode">standard</option>
+        <option name="charting.legend.placement">left</option>
+        <option name="charting.lineWidth">2</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="trellis.enabled">0</option>
+        <option name="trellis.scales.shared">0</option>
+        <option name="trellis.size">medium</option>
+      </chart>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <input type="dropdown" token="splitBy_eventsOverTime" searchWhenChanged="true">
+        <label>Split By</label>
+        <choice value="index">index</choice>
+        <choice value="sourcetype">sourcetype</choice>
+        <choice value="host">host</choice>
+        <choice value="source">source</choice>
+        <default>index</default>
+      </input>
+      <chart>
+        <title>split by index, sourcetype, or host</title>
+        <search>
+          <query>| tstats summariesonly=t count where index=* by index, sourcetype, host, source, splunk_server, _time
+| search $indexToken$ AND $sourcetypeToken$ AND $hostToken$ AND $splunk_serverToken$
+| timechart count by $splitBy_eventsOverTime$</query>
+          <earliest>$dataLoss_timepicker.earliest$</earliest>
+          <latest>$dataLoss_timepicker.latest$</latest>
+          <sampleRatio>1</sampleRatio>
+        </search>
+        <option name="charting.axisLabelsX.majorLabelStyle.overflowMode">ellipsisNone</option>
+        <option name="charting.axisLabelsX.majorLabelStyle.rotation">-45</option>
+        <option name="charting.axisTitleX.visibility">visible</option>
+        <option name="charting.axisTitleY.visibility">visible</option>
+        <option name="charting.axisTitleY2.visibility">visible</option>
+        <option name="charting.axisX.abbreviation">none</option>
+        <option name="charting.axisX.scale">linear</option>
+        <option name="charting.axisY.abbreviation">none</option>
+        <option name="charting.axisY.scale">linear</option>
+        <option name="charting.axisY2.abbreviation">none</option>
+        <option name="charting.axisY2.enabled">1</option>
+        <option name="charting.axisY2.scale">inherit</option>
+        <option name="charting.chart">area</option>
+        <option name="charting.chart.bubbleMaximumSize">50</option>
+        <option name="charting.chart.bubbleMinimumSize">10</option>
+        <option name="charting.chart.bubbleSizeBy">area</option>
+        <option name="charting.chart.nullValueMode">gaps</option>
+        <option name="charting.chart.overlayFields">"dc(host): *"</option>
+        <option name="charting.chart.showDataLabels">none</option>
+        <option name="charting.chart.sliceCollapsingThreshold">0.01</option>
+        <option name="charting.chart.stackMode">stacked</option>
+        <option name="charting.chart.style">shiny</option>
+        <option name="charting.drilldown">none</option>
+        <option name="charting.layout.splitSeries">0</option>
+        <option name="charting.layout.splitSeries.allowIndependentYRanges">0</option>
+        <option name="charting.legend.labelStyle.overflowMode">ellipsisMiddle</option>
+        <option name="charting.legend.mode">standard</option>
+        <option name="charting.legend.placement">left</option>
+        <option name="charting.lineWidth">2</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="trellis.enabled">0</option>
+        <option name="trellis.scales.shared">1</option>
+        <option name="trellis.size">medium</option>
+      </chart>
+    </panel>
+  </row>
+</form>
