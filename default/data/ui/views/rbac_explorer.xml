@@ -5,7 +5,7 @@
   <row>
     <panel>
       <html>
-        <h1 align="center" style="{background-color: lightgray !important;}">Explore Data Access</h1>
+        <h1 align="center">Roles and Indexes Overview</h1>
       </html>
     </panel>
   </row>
@@ -144,7 +144,60 @@
   </row>
   <row>
     <panel>
-      <title>By User and Role</title>
+      <html>
+        <h1 align="center">Explore Data Access</h1>
+      </html>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <title>Explore Roles</title>
+      <input type="multiselect" token="role_token" searchWhenChanged="true">
+        <label>Filter by Role</label>
+        <prefix>(</prefix>
+        <suffix>)</suffix>
+        <valuePrefix>title=</valuePrefix>
+        <delimiter> OR </delimiter>
+        <fieldForLabel>title</fieldForLabel>
+        <fieldForValue>title</fieldForValue>
+        <search>
+          <query>| rest /services/authorization/roles
+| fields title</query>
+          <earliest>0</earliest>
+          <latest></latest>
+        </search>
+        <choice value="*">All</choice>
+        <initialValue>*</initialValue>
+      </input>
+      <table>
+        <title>Queries REST /services/authorization/roles for all indexes allowed by a role and its inherited roles.</title>
+        <search>
+          <query>| rest /services/authorization/roles splunk_server=local
+| search $role_token$
+| fields title srchIndexesAllowed srchIndexesDefault imported_roles imported_srchIndexesAllowed srchFilter defaultApp author updated
+| rename srchIndexesAllowed as idxAllowed 
+| rename srchIndexesDefault as idxDefault
+| rename imported_srchIndexesAllowed as idxAllowed_imported</query>
+          <earliest>-60m@m</earliest>
+          <latest>now</latest>
+          <sampleRatio>1</sampleRatio>
+        </search>
+        <option name="count">20</option>
+        <option name="dataOverlayMode">none</option>
+        <option name="drilldown">none</option>
+        <option name="percentagesRow">false</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="rowNumbers">false</option>
+        <option name="totalsRow">false</option>
+        <option name="wrap">true</option>
+        <format type="color" field="title">
+          <colorPalette type="sharedList"></colorPalette>
+          <scale type="sharedCategory"></scale>
+        </format>
+      </table>
+    </panel>
+    <panel>
+      <title>Explore Users</title>
       <input type="multiselect" token="userSrch_user_token" searchWhenChanged="true">
         <label>Filter by User</label>
         <choice value="*">All</choice>
@@ -213,81 +266,14 @@
         </format>
       </table>
     </panel>
-    <panel>
-      <title>By Role and Index</title>
-      <input type="multiselect" token="role_token" searchWhenChanged="true">
-        <label>Filter by Role</label>
-        <prefix>(</prefix>
-        <suffix>)</suffix>
-        <valuePrefix>title=</valuePrefix>
-        <delimiter> OR </delimiter>
-        <fieldForLabel>title</fieldForLabel>
-        <fieldForValue>title</fieldForValue>
-        <search>
-          <query>| rest /services/authorization/roles
-| fields title</query>
-          <earliest>0</earliest>
-          <latest></latest>
-        </search>
-        <choice value="*">All</choice>
-        <initialValue>*</initialValue>
-      </input>
-      <table>
-        <title>Queries REST /services/authorization/roles for all indexes allowed by a role and its inherited roles.</title>
-        <search>
-          <query>| rest /services/authorization/roles splunk_server=local
-| search $role_token$
-| fields title srchIndexesAllowed srchIndexesDefault imported_roles imported_srchIndexesAllowed srchFilter defaultApp author updated
-| rename srchIndexesAllowed as idxAllowed 
-| rename srchIndexesDefault as idxDefault
-| rename imported_srchIndexesAllowed as idxAllowed_imported</query>
-          <earliest>-60m@m</earliest>
-          <latest>now</latest>
-          <sampleRatio>1</sampleRatio>
-        </search>
-        <option name="count">20</option>
-        <option name="dataOverlayMode">none</option>
-        <option name="drilldown">none</option>
-        <option name="percentagesRow">false</option>
-        <option name="refresh.display">progressbar</option>
-        <option name="rowNumbers">false</option>
-        <option name="totalsRow">false</option>
-        <option name="wrap">true</option>
-        <format type="color" field="title">
-          <colorPalette type="sharedList"></colorPalette>
-          <scale type="sharedCategory"></scale>
-        </format>
-      </table>
-    </panel>
   </row>
   <row>
-    <panel>
-      <title>Allowed Index to Role Mapping</title>
-      <viz type="parallel_coordinates_app.parallel_coordinates">
-        <search>
-          <query>| rest /services/authorization/roles splunk_server=local
-| fields srchIndexesAllowed title
-| rename title as Role
-| rename srchIndexesAllowed as "Indexes Allowed"
-| mvexpand "Indexes Allowed"
-| fields - _mkv_child</query>
-          <earliest>0</earliest>
-          <latest></latest>
-          <sampleRatio>1</sampleRatio>
-        </search>
-        <option name="drilldown">none</option>
-        <option name="refresh.display">progressbar</option>
-        <option name="trellis.enabled">0</option>
-        <option name="trellis.scales.shared">1</option>
-        <option name="trellis.size">medium</option>
-      </viz>
-    </panel>
     <panel>
       <title>Role Inheritance</title>
       <viz type="sankey_diagram_app.sankey_diagram">
         <title>Queries REST /services/authorization/roles for imported roles by role. Roles on the right inherit those to the left.</title>
         <search>
-          <query>| rest /services/authorization/roles splunk_server=local 
+          <query>| rest /services/authorization/roles
 | fields title imported_roles 
 | mvexpand imported_roles 
 | stats count by imported_roles title</query>
@@ -317,7 +303,7 @@
   <row>
     <panel>
       <html>
-        <h1 align="center">User and Role Modifications</h1>
+        <h1 align="center">User and Role Modification History</h1>
       </html>
     </panel>
   </row>
@@ -326,14 +312,26 @@
       <input type="time" token="userEdits_timerange" searchWhenChanged="true">
         <label>Time Range</label>
         <default>
-          <earliest>-7d@h</earliest>
+          <earliest>@w0</earliest>
           <latest>now</latest>
         </default>
+      </input>
+      <input type="multiselect" token="operationToken" searchWhenChanged="true">
+        <label>Filter by Operation</label>
+        <choice value="create">create</choice>
+        <choice value="edit">edit</choice>
+        <choice value="remove">remove</choice>
+        <choice value="list">list</choice>
+        <default>create,edit,remove</default>
+        <prefix>(</prefix>
+        <suffix>)</suffix>
+        <valuePrefix>operation=</valuePrefix>
+        <delimiter> OR </delimiter>
       </input>
       <viz type="timeline_app.timeline">
         <title>Queries audit log, separates by user object, and colors by operation. List operations not shown.</title>
         <search>
-          <query>index=_audit info=* action=edit_user operation!=list info=granted
+          <query>index=_audit info=* action=edit_user $operationToken$ info=granted
 | transaction user object operation
 | table _time object operation duration</query>
           <earliest>$userEdits_timerange.earliest$</earliest>
@@ -347,7 +345,7 @@
         <option name="timeline_app.timeline.maxColor">#DA5C5C</option>
         <option name="timeline_app.timeline.minColor">#FFE8E8</option>
         <option name="timeline_app.timeline.numOfBins">6</option>
-        <option name="timeline_app.timeline.tooltipTimeFormat">MINUTES</option>
+        <option name="timeline_app.timeline.tooltipTimeFormat">SECONDS</option>
         <option name="timeline_app.timeline.useColors">1</option>
         <option name="trellis.enabled">0</option>
         <option name="trellis.scales.shared">1</option>
@@ -357,100 +355,16 @@
   </row>
   <row>
     <panel>
+      <title>User and Role Modifications - Table</title>
       <table>
+        <title>transactions are grouped by user, object, operation, and limited to 1 minute.</title>
         <search>
-          <query>index=_audit action=edit* action=*roles* timestamp=* operation!=list object=*
-| transaction user operation object maxspan=1m
-| table user timestamp operation info object action
-| sort -timestamp</query>
+          <query>index=_audit info=* action=edit_user $operationToken$ info=granted
+| transaction maxspan=1m user object operation splunk_server
+| table user _time operation object _raw splunk_server eventcount duration
+| sort - _time</query>
           <earliest>$userEdits_timerange.earliest$</earliest>
           <latest>$userEdits_timerange.latest$</latest>
-          <sampleRatio>1</sampleRatio>
-        </search>
-        <option name="count">10</option>
-        <option name="dataOverlayMode">none</option>
-        <option name="drilldown">cell</option>
-        <option name="percentagesRow">false</option>
-        <option name="rowNumbers">false</option>
-        <option name="totalsRow">false</option>
-        <option name="wrap">true</option>
-        <format type="color" field="role">
-          <colorPalette type="sharedList"></colorPalette>
-          <scale type="sharedCategory"></scale>
-        </format>
-        <format type="color" field="operation">
-          <colorPalette type="sharedList"></colorPalette>
-          <scale type="sharedCategory"></scale>
-        </format>
-        <format type="color" field="object">
-          <colorPalette type="sharedList"></colorPalette>
-          <scale type="sharedCategory"></scale>
-        </format>
-        <format type="color" field="user">
-          <colorPalette type="sharedList"></colorPalette>
-          <scale type="sharedCategory"></scale>
-        </format>
-      </table>
-    </panel>
-  </row>
-  <row>
-    <panel>
-      <html>
-        <h1 align="center">Audit Searches</h1>
-      </html>
-    </panel>
-  </row>
-  <row>
-    <panel>
-      <input type="time" token="search_history_token" searchWhenChanged="true">
-        <label>Time Range</label>
-        <default>
-          <earliest>-15m</earliest>
-          <latest>now</latest>
-        </default>
-      </input>
-      <input type="multiselect" token="infoToken" searchWhenChanged="true">
-        <label>Status</label>
-        <choice value="*">All</choice>
-        <choice value="completed">completed</choice>
-        <choice value="canceled">canceled</choice>
-        <choice value="failed">failed</choice>
-        <choice value="granted">granted</choice>
-        <choice value="cancel">cancel</choice>
-        <choice value="finalize">finalize</choice>
-        <prefix>(</prefix>
-        <suffix>)</suffix>
-        <initialValue>completed,canceled,failed,cancel,finalize</initialValue>
-        <valuePrefix>info=</valuePrefix>
-        <delimiter> OR </delimiter>
-      </input>
-      <input type="multiselect" token="search_history_userToken" searchWhenChanged="true">
-        <label>Filter by User</label>
-        <choice value="*">All</choice>
-        <prefix>(</prefix>
-        <suffix>)</suffix>
-        <initialValue>*</initialValue>
-        <valuePrefix>user=</valuePrefix>
-        <delimiter> OR </delimiter>
-        <fieldForLabel>title</fieldForLabel>
-        <fieldForValue>title</fieldForValue>
-        <search>
-          <query>| rest /services/authentication/users
-| fields title
-| dedup title</query>
-          <earliest>0</earliest>
-          <latest></latest>
-        </search>
-      </input>
-      <table>
-        <title>Searches _audit index for search actions.</title>
-        <search>
-          <query>index=_audit action=search $infoToken$ $search_history_userToken$
-| eval exec_time=strftime(exec_time, "%m/%d/%y %H:%M:%S") 
-| table exec_time user roles search savedsearch_name info status total_run_time searched_buckets considered_events drop_count event_count result_count available_count decompressed_slices total_slices sourcetype_count__audittrail search_id
-| sort - exec_time</query>
-          <earliest>$search_history_token.earliest$</earliest>
-          <latest>$search_history_token.latest$</latest>
           <sampleRatio>1</sampleRatio>
         </search>
         <option name="count">10</option>
@@ -460,39 +374,24 @@
         <option name="rowNumbers">false</option>
         <option name="totalsRow">false</option>
         <option name="wrap">true</option>
-        <format type="color" field="info">
-          <colorPalette type="map">{"failed":#DC4E41,"completed":#53A051,"canceled":#708794}</colorPalette>
+        <format type="color" field="operation">
+          <colorPalette type="map">{"remove":#DC4E41,"create":#4FA484,"edit":#294E70,"list":#62B3B2}</colorPalette>
+        </format>
+        <format type="color" field="duration">
+          <colorPalette type="minMidMax" maxColor="#DC4E41" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="0"></scale>
+        </format>
+        <format type="color" field="object">
+          <colorPalette type="sharedList"></colorPalette>
+          <scale type="sharedCategory"></scale>
         </format>
         <format type="color" field="user">
           <colorPalette type="sharedList"></colorPalette>
           <scale type="sharedCategory"></scale>
         </format>
-        <format type="number" field="event_count">
+        <format type="number" field="duration">
           <option name="precision">0</option>
-        </format>
-        <format type="color" field="event_count">
-          <colorPalette type="minMidMax" maxColor="#006D9C" minColor="#FFFFFF"></colorPalette>
-          <scale type="minMidMax" minValue="0"></scale>
-        </format>
-        <format type="color" field="drop_count">
-          <colorPalette type="minMidMax" maxColor="#DC4E41" minColor="#FFFFFF"></colorPalette>
-          <scale type="minMidMax" minValue="0"></scale>
-        </format>
-        <format type="color" field="result_count">
-          <colorPalette type="minMidMax" maxColor="#006D9C" minColor="#FFFFFF"></colorPalette>
-          <scale type="minMidMax" minValue="0"></scale>
-        </format>
-        <format type="color" field="total_run_time">
-          <colorPalette type="minMidMax" maxColor="#DC4E41" minColor="#FFFFFF"></colorPalette>
-          <scale type="minMidMax" minValue="0"></scale>
-        </format>
-        <format type="color" field="searched_buckets">
-          <colorPalette type="minMidMax" maxColor="#DC4E41" minColor="#FFFFFF"></colorPalette>
-          <scale type="minMidMax" minValue="0"></scale>
-        </format>
-        <format type="color" field="considered_events">
-          <colorPalette type="minMidMax" maxColor="#DC4E41" minColor="#FFFFFF"></colorPalette>
-          <scale type="minMidMax" minValue="0"></scale>
+          <option name="unit">s</option>
         </format>
       </table>
     </panel>
