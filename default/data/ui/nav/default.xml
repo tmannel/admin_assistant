@@ -7,7 +7,6 @@
     <view name="event_flow" />
     <view name="license_usage" />
   </collection>
-  <view name="data_summary" />
   <collection label="User Adoption" >
     <view name="user_logins" />
     <view name="dashboard_adoption"/>
