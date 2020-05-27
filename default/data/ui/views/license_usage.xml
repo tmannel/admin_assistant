@@ -1,5 +1,5 @@
 <form theme="light">
-  <label>Data Summary</label>
+  <label>License Usage</label>
   <description>Summary of Indexes and Sourcetypes coming into Splunk. Designed for Splunk Admins.</description>
   <search id="dailyAveragesBaseSearch">
     <query>
@@ -20,6 +20,13 @@
     <latest>$timepicker.latest$</latest>
   </search>
   <fieldset submitButton="true" autoRun="true">
+    <input type="time" token="timepicker" searchWhenChanged="false">
+      <label>Time Range</label>
+      <default>
+        <earliest>-24h@h</earliest>
+        <latest>now</latest>
+      </default>
+    </input>
     <input type="multiselect" token="indexToken" searchWhenChanged="false">
       <label>Filter by Index</label>
       <choice value="*">All</choice>
@@ -48,19 +55,11 @@
       <fieldForValue>sourcetype</fieldForValue>
       <search>
         <query>|  metadata type=sourcetypes
-| fields sourcetype
-| dedup sourcetype</query>
-        <earliest>-1y@y</earliest>
-        <latest>@y</latest>
+| fields sourcetype</query>
+        <earliest>-30d@d</earliest>
+        <latest>now</latest>
       </search>
       <initialValue>*</initialValue>
-    </input>
-    <input type="time" token="timepicker" searchWhenChanged="false">
-      <label>Time Range</label>
-      <default>
-        <earliest>-24h@h</earliest>
-        <latest>now</latest>
-      </default>
     </input>
   </fieldset>
   <row depends="$hide$">
@@ -215,122 +214,6 @@
         <option name="charting.legend.labelStyle.overflowMode">ellipsisMiddle</option>
         <option name="charting.legend.mode">standard</option>
         <option name="charting.legend.placement">right</option>
-        <option name="charting.lineWidth">2</option>
-        <option name="refresh.display">progressbar</option>
-        <option name="trellis.enabled">0</option>
-        <option name="trellis.scales.shared">1</option>
-        <option name="trellis.size">medium</option>
-      </chart>
-    </panel>
-  </row>
-  <row>
-    <panel>
-      <html encoded="1">&lt;h1 align="center"&gt;Data Over Time&lt;/h1&gt;</html>
-    </panel>
-  </row>
-  <row>
-    <panel>
-      <title>Events</title>
-      <input type="dropdown" token="splitBy_eventsOverTime" searchWhenChanged="true">
-        <label>Split By</label>
-        <choice value="index">index</choice>
-        <choice value="sourcetype">sourcetype</choice>
-        <default>index</default>
-      </input>
-      <chart>
-        <title>tstats query returning total event count in all events indexes.</title>
-        <search>
-          <query>| tstats count where index=* by index, sourcetype, _time 
-| search $indexToken$ 
-| search $sourcetypeToken$ 
-| timechart count by $splitBy_eventsOverTime$</query>
-          <earliest>$timepicker.earliest$</earliest>
-          <latest>$timepicker.latest$</latest>
-          <sampleRatio>1</sampleRatio>
-        </search>
-        <option name="charting.axisLabelsX.majorLabelStyle.overflowMode">ellipsisNone</option>
-        <option name="charting.axisLabelsX.majorLabelStyle.rotation">-45</option>
-        <option name="charting.axisTitleX.visibility">visible</option>
-        <option name="charting.axisTitleY.visibility">visible</option>
-        <option name="charting.axisTitleY2.visibility">visible</option>
-        <option name="charting.axisX.abbreviation">none</option>
-        <option name="charting.axisX.scale">linear</option>
-        <option name="charting.axisY.abbreviation">none</option>
-        <option name="charting.axisY.scale">linear</option>
-        <option name="charting.axisY2.abbreviation">none</option>
-        <option name="charting.axisY2.enabled">1</option>
-        <option name="charting.axisY2.scale">inherit</option>
-        <option name="charting.chart">area</option>
-        <option name="charting.chart.bubbleMaximumSize">50</option>
-        <option name="charting.chart.bubbleMinimumSize">10</option>
-        <option name="charting.chart.bubbleSizeBy">area</option>
-        <option name="charting.chart.nullValueMode">gaps</option>
-        <option name="charting.chart.overlayFields">"dc(host): *"</option>
-        <option name="charting.chart.showDataLabels">none</option>
-        <option name="charting.chart.sliceCollapsingThreshold">0.01</option>
-        <option name="charting.chart.stackMode">stacked</option>
-        <option name="charting.chart.style">shiny</option>
-        <option name="charting.drilldown">none</option>
-        <option name="charting.layout.splitSeries">0</option>
-        <option name="charting.layout.splitSeries.allowIndependentYRanges">0</option>
-        <option name="charting.legend.labelStyle.overflowMode">ellipsisMiddle</option>
-        <option name="charting.legend.mode">standard</option>
-        <option name="charting.legend.placement">bottom</option>
-        <option name="charting.lineWidth">2</option>
-        <option name="refresh.display">progressbar</option>
-        <option name="trellis.enabled">0</option>
-        <option name="trellis.scales.shared">1</option>
-        <option name="trellis.size">medium</option>
-      </chart>
-    </panel>
-    <panel>
-      <title>Metrics</title>
-      <input type="dropdown" token="splitBy_metrics" searchWhenChanged="true">
-        <label>Split By</label>
-        <choice value="index">index</choice>
-        <choice value="sourcetype">sourcetype</choice>
-        <choice value="metric_name">metric name</choice>
-        <default>index</default>
-      </input>
-      <chart>
-        <search>
-          <query>| mstats count span=1h where index=* metric_name=* BY index, metric_name, sourcetype 
-| search $indexToken$ 
-| search $sourcetypeToken$ 
-| eval reading=1 
-| timechart sum(reading) as readings by $splitBy_metrics$</query>
-          <earliest>$timepicker.earliest$</earliest>
-          <latest>$timepicker.latest$</latest>
-          <sampleRatio>1</sampleRatio>
-        </search>
-        <option name="charting.axisLabelsX.majorLabelStyle.overflowMode">ellipsisNone</option>
-        <option name="charting.axisLabelsX.majorLabelStyle.rotation">0</option>
-        <option name="charting.axisTitleX.visibility">visible</option>
-        <option name="charting.axisTitleY.text">Readings</option>
-        <option name="charting.axisTitleY.visibility">visible</option>
-        <option name="charting.axisTitleY2.visibility">visible</option>
-        <option name="charting.axisX.abbreviation">none</option>
-        <option name="charting.axisX.scale">linear</option>
-        <option name="charting.axisY.abbreviation">none</option>
-        <option name="charting.axisY.scale">linear</option>
-        <option name="charting.axisY2.abbreviation">none</option>
-        <option name="charting.axisY2.enabled">0</option>
-        <option name="charting.axisY2.scale">inherit</option>
-        <option name="charting.chart">area</option>
-        <option name="charting.chart.bubbleMaximumSize">50</option>
-        <option name="charting.chart.bubbleMinimumSize">10</option>
-        <option name="charting.chart.bubbleSizeBy">area</option>
-        <option name="charting.chart.nullValueMode">zero</option>
-        <option name="charting.chart.showDataLabels">none</option>
-        <option name="charting.chart.sliceCollapsingThreshold">0.01</option>
-        <option name="charting.chart.stackMode">stacked</option>
-        <option name="charting.chart.style">shiny</option>
-        <option name="charting.drilldown">none</option>
-        <option name="charting.layout.splitSeries">0</option>
-        <option name="charting.layout.splitSeries.allowIndependentYRanges">0</option>
-        <option name="charting.legend.labelStyle.overflowMode">ellipsisMiddle</option>
-        <option name="charting.legend.mode">standard</option>
-        <option name="charting.legend.placement">bottom</option>
         <option name="charting.lineWidth">2</option>
         <option name="refresh.display">progressbar</option>
         <option name="trellis.enabled">0</option>
