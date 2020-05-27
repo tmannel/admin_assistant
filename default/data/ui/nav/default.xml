@@ -10,7 +10,6 @@
   <view name="data_summary" />
   <collection label="User Adoption" >
     <view name="user_logins" />
-    <view name="user_adoption" />
     <view name="dashboard_adoption"/>
     <view name="alert_adoption"/>
   </collection>
