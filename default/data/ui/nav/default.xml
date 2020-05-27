@@ -1,9 +1,15 @@
 <nav search_view="search">
   <view name="home" />
+  <collection label="RBAC" >
+    <view name="rbac_explorer" />
+  </collection>
+  <collection label="Data Ingestion" >
+    <view name="event_flow" />
+    <view name="license_usage" />
+  </collection>
   <view name="data_summary" />
-  <view name="rbac_explorer" />
-  <collection label="System Adoption" >
-    <view name="data_onboarding" />
+  <collection label="User Adoption" >
+    <view name="user_logins" />
     <view name="user_adoption" />
     <view name="dashboard_adoption"/>
     <view name="alert_adoption"/>
