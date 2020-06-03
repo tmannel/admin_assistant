@@ -5,6 +5,8 @@ The Admin Assistant allows Splunk admins to monitor data ingestion and onboardin
 Install pre-requisite visualization apps on search heads or search head cluster:
 - Sankey Diagram
 - Timeline Viz
+- Punchcard
+- Parallel Coordinates Diagram
 
 Install on Splunk search heads. No knowledge objects other than views are required for Admin Assistant.
 
