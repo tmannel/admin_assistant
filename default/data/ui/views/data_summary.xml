@@ -50,8 +50,8 @@
         <query>|  metadata type=sourcetypes
 | fields sourcetype
 | dedup sourcetype</query>
-        <earliest>-1y@y</earliest>
-        <latest>@y</latest>
+        <earliest>-7d@h</earliest>
+        <latest>now</latest>
       </search>
       <initialValue>*</initialValue>
     </input>
