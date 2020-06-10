@@ -4,7 +4,7 @@
   <!-- Base Search -->
   <search id="searchExplorer_baseSearch">
     <query>
-      index=_audit source=audittrail sourcetype=audittrail action=search $search_infoToken$ $search_userToken$
+      index=_audit source=audittrail sourcetype=audittrail action=search $search_infoToken$ $search_userToken$ $searchFilter$ $roleToken$
       | fields _time user roles info savedsearch_name total_run_time search_type search exec_time api_lt api_et event_count drop_count searched_buckets 
     </query>
     <earliest>$search_timepicker.earliest$</earliest>
@@ -26,11 +26,30 @@
       <choice value="failed">failed</choice>
       <choice value="pause">pause</choice>
       <choice value="granted">granted</choice>
-      <default>completed,failed</default>
+      <default>*</default>
       <prefix>(</prefix>
       <suffix>)</suffix>
       <valuePrefix>info=</valuePrefix>
       <delimiter> OR </delimiter>
+    </input>
+    <input type="multiselect" token="roleToken">
+      <label>Roles</label>
+      <choice value="*">All</choice>
+      <default>*</default>
+      <prefix>(</prefix>
+      <suffix>)</suffix>
+      <valuePrefix>roles=*</valuePrefix>
+      <valueSuffix>*</valueSuffix>
+      <delimiter> OR </delimiter>
+      <fieldForLabel>title</fieldForLabel>
+      <fieldForValue>title</fieldForValue>
+      <search>
+        <query>|  rest services/authorization/roles
+| fields title
+| dedup title</query>
+        <earliest>-24h@h</earliest>
+        <latest>now</latest>
+      </search>
     </input>
     <input type="multiselect" token="search_userToken">
       <label>Users</label>
@@ -49,6 +68,12 @@
         <latest>now</latest>
       </search>
       <default>* NOT user=splunk-system-user</default>
+    </input>
+    <input type="text" token="searchFilter">
+      <label>Filter Search</label>
+      <default>*</default>
+      <prefix>search="</prefix>
+      <suffix>"</suffix>
     </input>
   </fieldset>
   <row>
@@ -78,107 +103,19 @@
         </format>
       </table>
     </panel>
-    <panel>
-      <title>Top 5 Users</title>
-      <table>
-        <search base="searchExplorer_baseSearch">
-          <query>| top user limit=5</query>
-        </search>
-        <option name="count">20</option>
-        <option name="dataOverlayMode">none</option>
-        <option name="drilldown">none</option>
-        <option name="percentagesRow">false</option>
-        <option name="rowNumbers">true</option>
-        <option name="totalsRow">false</option>
-        <option name="wrap">true</option>
-        <format type="color" field="count">
-          <colorPalette type="minMidMax" maxColor="#006D9C" minColor="#FFFFFF"></colorPalette>
-          <scale type="minMidMax" minValue="1"></scale>
-        </format>
-        <format type="color" field="percent">
-          <colorPalette type="minMidMax" maxColor="#53A051" minColor="#FFFFFF"></colorPalette>
-          <scale type="minMidMax" maxValue="100" minValue="0"></scale>
-        </format>
-        <format type="number" field="percent">
-          <option name="precision">1</option>
-          <option name="unit">%</option>
-        </format>
-        <format type="number" field="count">
-          <option name="precision">0</option>
-        </format>
-      </table>
-    </panel>
-    <panel>
-      <title>Top 5 Roles</title>
-      <table>
-        <search base="searchExplorer_baseSearch">
-          <query>| top roles limit=5</query>
-        </search>
-        <option name="count">20</option>
-        <option name="dataOverlayMode">none</option>
-        <option name="drilldown">none</option>
-        <option name="percentagesRow">false</option>
-        <option name="refresh.display">progressbar</option>
-        <option name="rowNumbers">true</option>
-        <option name="totalsRow">false</option>
-        <option name="wrap">true</option>
-        <format type="color" field="count">
-          <colorPalette type="minMidMax" maxColor="#006D9C" minColor="#FFFFFF"></colorPalette>
-          <scale type="minMidMax" minValue="1"></scale>
-        </format>
-        <format type="color" field="percent">
-          <colorPalette type="minMidMax" maxColor="#53A051" minColor="#FFFFFF"></colorPalette>
-          <scale type="minMidMax" maxValue="100" minValue="0"></scale>
-        </format>
-        <format type="number" field="percent">
-          <option name="precision">1</option>
-          <option name="unit">%</option>
-        </format>
-        <format type="number" field="count">
-          <option name="precision">0</option>
-        </format>
-      </table>
-    </panel>
-  </row>
-  <row>
-    <panel>
-      <title>Top 5 Searches</title>
-      <table>
-        <search base="searchExplorer_baseSearch">
-          <query>| top search limit=5</query>
-        </search>
-        <option name="count">20</option>
-        <option name="dataOverlayMode">none</option>
-        <option name="drilldown">none</option>
-        <option name="percentagesRow">false</option>
-        <option name="refresh.display">progressbar</option>
-        <option name="rowNumbers">true</option>
-        <option name="totalsRow">false</option>
-        <option name="wrap">true</option>
-        <format type="color" field="count">
-          <colorPalette type="minMidMax" maxColor="#006D9C" minColor="#FFFFFF"></colorPalette>
-          <scale type="minMidMax" minValue="1"></scale>
-        </format>
-        <format type="color" field="percent">
-          <colorPalette type="minMidMax" maxColor="#53A051" minColor="#FFFFFF"></colorPalette>
-          <scale type="minMidMax" maxValue="100" minValue="0"></scale>
-        </format>
-        <format type="number" field="percent">
-          <option name="precision">1</option>
-          <option name="unit">%</option>
-        </format>
-        <format type="number" field="count">
-          <option name="precision">0</option>
-        </format>
-      </table>
-    </panel>
   </row>
   <row>
     <panel>
       <title>Searches by Info</title>
+      <input type="link" token="splitby_token" searchWhenChanged="true">
+        <label>Split By</label>
+        <choice value="info">info</choice>
+        <choice value="user">user</choice>
+        <default>info</default>
+      </input>
       <chart>
         <search base="searchExplorer_baseSearch">
-          <query>| timechart count by info</query>
+          <query>| timechart count by $splitby_token$</query>
         </search>
         <option name="charting.axisLabelsX.majorLabelStyle.rotation">-45</option>
         <option name="charting.axisTitleX.visibility">collapsed</option>
@@ -202,14 +139,13 @@
 | foreach api_* exec_time _time
     [ eval &lt;&lt;FIELD&gt;&gt;=strftime(&lt;&lt;FIELD&gt;&gt;, "%Y-%m-%d %H:%M:%S")] 
 | rename api_et as "Range (earliest)", api_lt as "Range (latest)"
-| table _time exec_time user roles info savedsearch_name total_run_time type search "Range (earliest)" "Range (latest)" range_sec event_count drop_count searched_buckets 
+| table _time exec_time user roles info savedsearch_name total_run_time search "Range (earliest)" "Range (latest)" range_sec event_count drop_count searched_buckets 
 | sort - _time</query>
         </search>
         <option name="count">10</option>
         <option name="dataOverlayMode">none</option>
         <option name="drilldown">cell</option>
         <option name="percentagesRow">false</option>
-        <option name="refresh.display">progressbar</option>
         <option name="rowNumbers">true</option>
         <option name="totalsRow">false</option>
         <option name="wrap">true</option>
@@ -218,7 +154,7 @@
           <scale type="minMidMax" minValue="0"></scale>
         </format>
         <format type="color" field="info">
-          <colorPalette type="map">{"completed":#53A051,"canceled":#F8BE34,"failed":#DC4E41,"cancel":#F8BE34}</colorPalette>
+          <colorPalette type="map">{"completed":#53A051,"canceled":#F8BE34,"failed":#DC4E41,"cancel":#F8BE34,"granted":#006400}</colorPalette>
         </format>
         <format type="color" field="drop_count">
           <colorPalette type="minMidMax" maxColor="#DC4E41" minColor="#FFFFFF"></colorPalette>
