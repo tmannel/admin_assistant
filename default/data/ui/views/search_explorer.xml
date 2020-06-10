@@ -1,0 +1,249 @@
+<form>
+  <label>Search Explorer</label>
+  <description>Audit all searches.</description>
+  <!-- Base Search -->
+  <search id="searchExplorer_baseSearch">
+    <query>
+      index=_audit source=audittrail sourcetype=audittrail action=search $search_infoToken$ $search_userToken$
+      | fields _time user roles info savedsearch_name total_run_time search_type search exec_time api_lt api_et event_count drop_count searched_buckets 
+    </query>
+    <earliest>$search_timepicker.earliest$</earliest>
+    <latest>$search_timepicker.latest$</latest>
+  </search>
+  <fieldset submitButton="true" autoRun="true">
+    <input type="time" token="search_timepicker">
+      <label>Time Range</label>
+      <default>
+        <earliest>-60m@m</earliest>
+        <latest>now</latest>
+      </default>
+    </input>
+    <input type="multiselect" token="search_infoToken">
+      <label>Info</label>
+      <choice value="*">All</choice>
+      <choice value="completed">completed</choice>
+      <choice value="cancel*">canceled</choice>
+      <choice value="failed">failed</choice>
+      <choice value="pause">pause</choice>
+      <choice value="granted">granted</choice>
+      <default>completed,failed</default>
+      <prefix>(</prefix>
+      <suffix>)</suffix>
+      <valuePrefix>info=</valuePrefix>
+      <delimiter> OR </delimiter>
+    </input>
+    <input type="multiselect" token="search_userToken">
+      <label>Users</label>
+      <choice value="* NOT user=splunk-system-user">All User Accounts</choice>
+      <choice value="*">All</choice>
+      <choice value="splunk-system-user">splunk-system-user</choice>
+      <prefix>(</prefix>
+      <suffix>)</suffix>
+      <valuePrefix>user=</valuePrefix>
+      <delimiter> OR </delimiter>
+      <fieldForLabel>title</fieldForLabel>
+      <fieldForValue>title</fieldForValue>
+      <search>
+        <query>| rest splunk_server=local services/authentication/users</query>
+        <earliest>-24h@h</earliest>
+        <latest>now</latest>
+      </search>
+      <default>* NOT user=splunk-system-user</default>
+    </input>
+  </fieldset>
+  <row>
+    <panel>
+      <title>Search Overview</title>
+      <table>
+        <search base="searchExplorer_baseSearch">
+          <query>| stats count dc(user) as "Distinct Users" dc(savedsearch_name) as "Distinct Saved Searches" dc(search) as "Distinct Searches"</query>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+        <format type="color" field="column">
+          <colorPalette type="sharedList"></colorPalette>
+          <scale type="sharedCategory"></scale>
+        </format>
+        <format type="number" field="Distinct Searches">
+          <option name="precision">0</option>
+        </format>
+        <format type="number" field="Distinct Saved Searches">
+          <option name="precision">0</option>
+        </format>
+        <format type="number" field="Distinct Users">
+          <option name="precision">0</option>
+        </format>
+        <format type="number" field="count">
+          <option name="precision">0</option>
+        </format>
+      </table>
+    </panel>
+    <panel>
+      <title>Top 5 Users</title>
+      <table>
+        <search base="searchExplorer_baseSearch">
+          <query>| top user limit=5</query>
+        </search>
+        <option name="count">20</option>
+        <option name="dataOverlayMode">none</option>
+        <option name="drilldown">none</option>
+        <option name="percentagesRow">false</option>
+        <option name="rowNumbers">true</option>
+        <option name="totalsRow">false</option>
+        <option name="wrap">true</option>
+        <format type="color" field="count">
+          <colorPalette type="minMidMax" maxColor="#006D9C" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="1"></scale>
+        </format>
+        <format type="color" field="percent">
+          <colorPalette type="minMidMax" maxColor="#53A051" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" maxValue="100" minValue="0"></scale>
+        </format>
+        <format type="number" field="percent">
+          <option name="precision">1</option>
+          <option name="unit">%</option>
+        </format>
+        <format type="number" field="count">
+          <option name="precision">0</option>
+        </format>
+      </table>
+    </panel>
+    <panel>
+      <title>Top 5 Roles</title>
+      <table>
+        <search base="searchExplorer_baseSearch">
+          <query>| top roles limit=5</query>
+        </search>
+        <option name="count">20</option>
+        <option name="dataOverlayMode">none</option>
+        <option name="drilldown">none</option>
+        <option name="percentagesRow">false</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="rowNumbers">true</option>
+        <option name="totalsRow">false</option>
+        <option name="wrap">true</option>
+        <format type="color" field="count">
+          <colorPalette type="minMidMax" maxColor="#006D9C" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="1"></scale>
+        </format>
+        <format type="color" field="percent">
+          <colorPalette type="minMidMax" maxColor="#53A051" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" maxValue="100" minValue="0"></scale>
+        </format>
+        <format type="number" field="percent">
+          <option name="precision">1</option>
+          <option name="unit">%</option>
+        </format>
+        <format type="number" field="count">
+          <option name="precision">0</option>
+        </format>
+      </table>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <title>Top 5 Searches</title>
+      <table>
+        <search base="searchExplorer_baseSearch">
+          <query>| top search limit=5</query>
+        </search>
+        <option name="count">20</option>
+        <option name="dataOverlayMode">none</option>
+        <option name="drilldown">none</option>
+        <option name="percentagesRow">false</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="rowNumbers">true</option>
+        <option name="totalsRow">false</option>
+        <option name="wrap">true</option>
+        <format type="color" field="count">
+          <colorPalette type="minMidMax" maxColor="#006D9C" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="1"></scale>
+        </format>
+        <format type="color" field="percent">
+          <colorPalette type="minMidMax" maxColor="#53A051" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" maxValue="100" minValue="0"></scale>
+        </format>
+        <format type="number" field="percent">
+          <option name="precision">1</option>
+          <option name="unit">%</option>
+        </format>
+        <format type="number" field="count">
+          <option name="precision">0</option>
+        </format>
+      </table>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <title>Searches by Info</title>
+      <chart>
+        <search base="searchExplorer_baseSearch">
+          <query>| timechart count by info</query>
+        </search>
+        <option name="charting.axisLabelsX.majorLabelStyle.rotation">-45</option>
+        <option name="charting.axisTitleX.visibility">collapsed</option>
+        <option name="charting.axisTitleY.visibility">collapsed</option>
+        <option name="charting.chart">column</option>
+        <option name="charting.chart.showDataLabels">none</option>
+        <option name="charting.chart.stackMode">stacked</option>
+        <option name="charting.drilldown">all</option>
+        <option name="charting.layout.splitSeries">0</option>
+        <option name="charting.legend.placement">left</option>
+        <option name="refresh.display">progressbar</option>
+      </chart>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <title>Search Details</title>
+      <table>
+        <search base="searchExplorer_baseSearch">
+          <query>| eval range_sec=api_lt-api_et
+| foreach api_* exec_time _time
+    [ eval &lt;&lt;FIELD&gt;&gt;=strftime(&lt;&lt;FIELD&gt;&gt;, "%Y-%m-%d %H:%M:%S")] 
+| rename api_et as "Range (earliest)", api_lt as "Range (latest)"
+| table _time exec_time user roles info savedsearch_name total_run_time type search "Range (earliest)" "Range (latest)" range_sec event_count drop_count searched_buckets 
+| sort - _time</query>
+        </search>
+        <option name="count">10</option>
+        <option name="dataOverlayMode">none</option>
+        <option name="drilldown">cell</option>
+        <option name="percentagesRow">false</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="rowNumbers">true</option>
+        <option name="totalsRow">false</option>
+        <option name="wrap">true</option>
+        <format type="color" field="total_run_time">
+          <colorPalette type="minMidMax" maxColor="#DC4E41" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="0"></scale>
+        </format>
+        <format type="color" field="info">
+          <colorPalette type="map">{"completed":#53A051,"canceled":#F8BE34,"failed":#DC4E41,"cancel":#F8BE34}</colorPalette>
+        </format>
+        <format type="color" field="drop_count">
+          <colorPalette type="minMidMax" maxColor="#DC4E41" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="0"></scale>
+        </format>
+        <format type="color" field="event_count">
+          <colorPalette type="minMidMax" maxColor="#5A4575" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="0"></scale>
+        </format>
+        <format type="color" field="searched_buckets">
+          <colorPalette type="minMidMax" maxColor="#006D9C" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="1"></scale>
+        </format>
+        <format type="color" field="user">
+          <colorPalette type="sharedList"></colorPalette>
+          <scale type="sharedCategory"></scale>
+        </format>
+        <format type="number" field="event_count">
+          <option name="precision">0</option>
+        </format>
+        <format type="number" field="range_sec">
+          <option name="precision">0</option>
+          <option name="unit">s</option>
+        </format>
+      </table>
+    </panel>
+  </row>
+</form>
