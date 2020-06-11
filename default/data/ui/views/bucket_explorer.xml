@@ -1,14 +1,17 @@
 <form theme="light">
   <label>Bucket Explorer</label>
   <description>== HOW TO USE ==  Filter the entire dashboard using the inputs at the top with the submit button. Individual dashboards have additional inputs.</description>
+  <search id="bucketRolls_baseSearch">
+    <query>
+      index=_internal sourcetype=splunkd source="*splunkd.log" component=HotBucketRoller
+      | fields _time idx splunk_server size from to bid event_message
+      | rename idx as index
+      | search $bucket_index_token$
+    </query>
+    <earliest>$bucket_timepicker.earliest$</earliest>
+    <latest>$bucket_timepicker.latest$</latest>
+  </search>
   <fieldset submitButton="true" autoRun="true">
-    <input type="time" token="bucket_timepicker" searchWhenChanged="false">
-      <label>Bucket Last Modified</label>
-      <default>
-        <earliest>-24h@h</earliest>
-        <latest>now</latest>
-      </default>
-    </input>
     <input type="multiselect" token="bucket_index_token" searchWhenChanged="false">
       <label>Filter by Index</label>
       <choice value="*">All</choice>
@@ -35,106 +38,15 @@
     </panel>
   </row>
   <row>
-    <panel>
-      <title>Hot to Warm Rolls Over Time</title>
-      <input type="link" token="rolls_splitBy" searchWhenChanged="true">
-        <label>Split By</label>
-        <choice value="index">index</choice>
-        <choice value="splunk_server">splunk_server</choice>
-        <default>index</default>
-      </input>
-      <chart>
-        <title>queries HotBucketRoller component in splunkd.log</title>
-        <search>
-          <query>index=_internal sourcetype=splunkd source="*splunkd.log" component=HotBucketRoller
-| fields _time idx splunk_server
-| rename idx as index
-| search $bucket_index_token$
-| timechart count by $rolls_splitBy$</query>
-          <earliest>$bucket_timepicker.earliest$</earliest>
-          <latest>$bucket_timepicker.latest$</latest>
-          <sampleRatio>1</sampleRatio>
-        </search>
-        <option name="charting.axisLabelsX.majorLabelStyle.overflowMode">ellipsisNone</option>
-        <option name="charting.axisLabelsX.majorLabelStyle.rotation">0</option>
-        <option name="charting.axisTitleX.visibility">visible</option>
-        <option name="charting.axisTitleY.visibility">visible</option>
-        <option name="charting.axisTitleY2.visibility">visible</option>
-        <option name="charting.axisX.abbreviation">none</option>
-        <option name="charting.axisX.scale">linear</option>
-        <option name="charting.axisY.abbreviation">none</option>
-        <option name="charting.axisY.scale">linear</option>
-        <option name="charting.axisY2.abbreviation">none</option>
-        <option name="charting.axisY2.enabled">0</option>
-        <option name="charting.axisY2.scale">inherit</option>
-        <option name="charting.chart">column</option>
-        <option name="charting.chart.bubbleMaximumSize">50</option>
-        <option name="charting.chart.bubbleMinimumSize">10</option>
-        <option name="charting.chart.bubbleSizeBy">area</option>
-        <option name="charting.chart.nullValueMode">gaps</option>
-        <option name="charting.chart.showDataLabels">none</option>
-        <option name="charting.chart.sliceCollapsingThreshold">0.01</option>
-        <option name="charting.chart.stackMode">stacked</option>
-        <option name="charting.chart.style">shiny</option>
-        <option name="charting.drilldown">none</option>
-        <option name="charting.layout.splitSeries">0</option>
-        <option name="charting.layout.splitSeries.allowIndependentYRanges">0</option>
-        <option name="charting.legend.labelStyle.overflowMode">ellipsisMiddle</option>
-        <option name="charting.legend.mode">standard</option>
-        <option name="charting.legend.placement">right</option>
-        <option name="charting.lineWidth">2</option>
-        <option name="refresh.display">progressbar</option>
-        <option name="trellis.enabled">0</option>
-        <option name="trellis.scales.shared">1</option>
-        <option name="trellis.size">medium</option>
-      </chart>
-    </panel>
-    <panel>
-      <title>Hot to Warm Rolls</title>
-      <table>
-        <search>
-          <query>index=_internal sourcetype=splunkd source="*splunkd.log" component=HotBucketRoller
-| rename idx as index
-| search $bucket_index_token$
-| table index _time splunk_server size from to bid event_message
-| sort - _time</query>
-          <earliest>$bucket_timepicker.earliest$</earliest>
-          <latest>$bucket_timepicker.latest$</latest>
-          <sampleRatio>1</sampleRatio>
-        </search>
-        <option name="count">10</option>
-        <option name="dataOverlayMode">none</option>
-        <option name="drilldown">none</option>
-        <option name="percentagesRow">false</option>
-        <option name="refresh.display">progressbar</option>
-        <option name="rowNumbers">false</option>
-        <option name="totalsRow">false</option>
-        <option name="wrap">false</option>
-        <format type="color" field="idx">
-          <colorPalette type="sharedList"></colorPalette>
-          <scale type="sharedCategory"></scale>
-        </format>
-        <format type="color" field="size">
-          <colorPalette type="minMidMax" maxColor="#DC4E41" minColor="#FFFFFF"></colorPalette>
-          <scale type="minMidMax" minValue="0"></scale>
-        </format>
-        <format type="color" field="splunk_server">
-          <colorPalette type="sharedList"></colorPalette>
-          <scale type="sharedCategory"></scale>
-        </format>
-        <format type="color" field="index">
-          <colorPalette type="sharedList"></colorPalette>
-          <scale type="sharedCategory"></scale>
-        </format>
-        <format type="number" field="size">
-          <option name="precision">0</option>
-        </format>
-      </table>
-    </panel>
-  </row>
-  <row>
     <panel id="panel_bucketMetrics">
       <title>Bucket Statistics</title>
+      <input type="time" token="bucketModified_token" searchWhenChanged="true">
+        <label>Bucket Last Modified</label>
+        <default>
+          <earliest>0</earliest>
+          <latest></latest>
+        </default>
+      </input>
       <input type="multiselect" token="bucket_state_token" searchWhenChanged="true">
         <label>State</label>
         <choice value="hot">hot</choice>
@@ -165,8 +77,8 @@
 | search $bucket_state_token$ 
 | sort index, sort_field, -"Compressed MB on Disk" 
 | table index splunk_server state "Earliest Data" "Latest Data" spanHours spanDays "Number of Buckets" "Total Events" "Avg Sources per Bucket" "Avg Sourcetypes per Bucket" "Compressed MB on Disk" "Compressed GB on Disk" "Raw MB" "Raw GB"</query>
-          <earliest>$bucket_timepicker.earliest$</earliest>
-          <latest>$bucket_timepicker.latest$</latest>
+          <earliest>$bucketModified_token.earliest$</earliest>
+          <latest>$bucketModified_token.latest$</latest>
           <sampleRatio>1</sampleRatio>
         </search>
         <option name="count">10</option>
@@ -318,6 +230,106 @@
         <format type="color" field="splunk_server">
           <colorPalette type="sharedList"></colorPalette>
           <scale type="sharedCategory"></scale>
+        </format>
+      </table>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <html encoded="1">&lt;h1 align="center" style="{background-color: lightgray !important;}"&gt;Bucket Rolls&lt;/h1&gt;</html>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <title>Hot to Warm Rolls Over Time</title>
+      <input type="time" token="bucketRoll_timepicker" searchWhenChanged="true">
+        <label>Bucket Roll Time</label>
+        <default>
+          <earliest>@w0</earliest>
+          <latest>now</latest>
+        </default>
+      </input>
+      <input type="link" token="rolls_splitBy" searchWhenChanged="true">
+        <label>Split By</label>
+        <choice value="index">index</choice>
+        <choice value="splunk_server">splunk_server</choice>
+        <default>index</default>
+      </input>
+      <chart>
+        <title>queries HotBucketRoller component in splunkd.log</title>
+        <search base="bucketRolls_baseSearch">
+          <query>
+          | timechart count by $rolls_splitBy$</query>
+        </search>
+        <option name="charting.axisLabelsX.majorLabelStyle.overflowMode">ellipsisNone</option>
+        <option name="charting.axisLabelsX.majorLabelStyle.rotation">0</option>
+        <option name="charting.axisTitleX.visibility">visible</option>
+        <option name="charting.axisTitleY.visibility">visible</option>
+        <option name="charting.axisTitleY2.visibility">visible</option>
+        <option name="charting.axisX.abbreviation">none</option>
+        <option name="charting.axisX.scale">linear</option>
+        <option name="charting.axisY.abbreviation">none</option>
+        <option name="charting.axisY.scale">linear</option>
+        <option name="charting.axisY2.abbreviation">none</option>
+        <option name="charting.axisY2.enabled">0</option>
+        <option name="charting.axisY2.scale">inherit</option>
+        <option name="charting.chart">column</option>
+        <option name="charting.chart.bubbleMaximumSize">50</option>
+        <option name="charting.chart.bubbleMinimumSize">10</option>
+        <option name="charting.chart.bubbleSizeBy">area</option>
+        <option name="charting.chart.nullValueMode">gaps</option>
+        <option name="charting.chart.showDataLabels">none</option>
+        <option name="charting.chart.sliceCollapsingThreshold">0.01</option>
+        <option name="charting.chart.stackMode">stacked</option>
+        <option name="charting.chart.style">shiny</option>
+        <option name="charting.drilldown">none</option>
+        <option name="charting.layout.splitSeries">0</option>
+        <option name="charting.layout.splitSeries.allowIndependentYRanges">0</option>
+        <option name="charting.legend.labelStyle.overflowMode">ellipsisMiddle</option>
+        <option name="charting.legend.mode">standard</option>
+        <option name="charting.legend.placement">right</option>
+        <option name="charting.lineWidth">2</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="trellis.enabled">0</option>
+        <option name="trellis.scales.shared">1</option>
+        <option name="trellis.size">medium</option>
+      </chart>
+    </panel>
+    <panel>
+      <title>Hot to Warm Rolls</title>
+      <table>
+        <search base="bucketRolls_baseSearch">
+          <query>
+            | table index _time splunk_server size from to bid event_message
+            | sort - _time
+          </query>
+        </search>
+        <option name="count">10</option>
+        <option name="dataOverlayMode">none</option>
+        <option name="drilldown">none</option>
+        <option name="percentagesRow">false</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="rowNumbers">false</option>
+        <option name="totalsRow">false</option>
+        <option name="wrap">false</option>
+        <format type="color" field="idx">
+          <colorPalette type="sharedList"></colorPalette>
+          <scale type="sharedCategory"></scale>
+        </format>
+        <format type="color" field="size">
+          <colorPalette type="minMidMax" maxColor="#DC4E41" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="0"></scale>
+        </format>
+        <format type="color" field="splunk_server">
+          <colorPalette type="sharedList"></colorPalette>
+          <scale type="sharedCategory"></scale>
+        </format>
+        <format type="color" field="index">
+          <colorPalette type="sharedList"></colorPalette>
+          <scale type="sharedCategory"></scale>
+        </format>
+        <format type="number" field="size">
+          <option name="precision">0</option>
         </format>
       </table>
     </panel>
