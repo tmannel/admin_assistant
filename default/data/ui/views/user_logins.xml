@@ -1,13 +1,40 @@
-<form>
+<form theme="light">
   <label>User Logins</label>
   <description>Analyze user logins and authentication settings.</description>
+  <!-- Base Search -->
+  <search id="userLogins_baseSearch">
+    <query>
+      index=_audit sourcetype=audittrail action="login attempt" $userToken$
+      | fields _time user host info clientip useragent session src
+    </query>
+    <earliest>$login_timerange_token.earliest$</earliest>
+    <latest>$login_timerange_token.latest$</latest>
+  </search>
   <fieldset submitButton="true" autoRun="true">
     <input type="time" token="login_timerange_token" searchWhenChanged="false">
       <label>Time Range</label>
       <default>
-        <earliest>-30d@d</earliest>
+        <earliest>@w0</earliest>
         <latest>now</latest>
       </default>
+    </input>
+    <input type="multiselect" token="userToken">
+      <label>Filter by User</label>
+      <choice value="*">All</choice>
+      <default>*</default>
+      <prefix>(</prefix>
+      <suffix>)</suffix>
+      <valuePrefix>user=</valuePrefix>
+      <delimiter> OR </delimiter>
+      <fieldForLabel>title</fieldForLabel>
+      <fieldForValue>title</fieldForValue>
+      <search>
+        <query>| rest services/authentication/users
+| fields title
+| dedup title</query>
+        <earliest>-24h@h</earliest>
+        <latest>now</latest>
+      </search>
     </input>
   </fieldset>
   <row>
@@ -20,12 +47,10 @@
   <row>
     <panel>
       <single>
-        <search>
-          <query>index=_audit sourcetype=audittrail action="login attempt" info="succeeded" 
-| stats dc(user)</query>
-          <earliest>$login_timerange_token.earliest$</earliest>
-          <latest>$login_timerange_token.latest$</latest>
-          <sampleRatio>1</sampleRatio>
+        <search base="userLogins_baseSearch">
+          <query>
+            | stats dc(user)
+          </query>
         </search>
         <option name="colorBy">trend</option>
         <option name="colorMode">none</option>
@@ -50,14 +75,13 @@
     </panel>
     <panel>
       <single>
-        <search>
-          <query>index=_audit sourcetype=audittrail action="login attempt" info="succeeded" 
-| bin _time span=1d
-| stats dc(user) as "Daily Users" by _time
-| stats avg("Daily Users") as "Average Daily Users"</query>
-          <earliest>$login_timerange_token.earliest$</earliest>
-          <latest>$login_timerange_token.latest$</latest>
-          <sampleRatio>1</sampleRatio>
+        <search base="userLogins_baseSearch">
+          <query>
+            | search info="succeeded"
+            | bin _time span=1d
+            | stats dc(user) as "Daily Users" by _time
+            | stats avg("Daily Users") as "Average Daily Users"
+          </query>
         </search>
         <option name="colorBy">value</option>
         <option name="colorMode">none</option>
@@ -148,18 +172,16 @@
     <panel>
       <title>Logins and Distinct Users</title>
       <chart>
-        <search>
-          <query>index=_audit sourcetype=audittrail action="login attempt"
-| timechart dc(user) as "Distinct Users" count by info</query>
-          <earliest>$login_timerange_token.earliest$</earliest>
-          <latest>$login_timerange_token.latest$</latest>
-          <sampleRatio>1</sampleRatio>
+        <search base="userLogins_baseSearch">
+          <query>
+          | timechart dc(user) as "Distinct Users" count by info
+          </query>
         </search>
         <option name="charting.axisLabelsX.majorLabelStyle.overflowMode">ellipsisNone</option>
         <option name="charting.axisLabelsX.majorLabelStyle.rotation">0</option>
-        <option name="charting.axisTitleX.visibility">visible</option>
+        <option name="charting.axisTitleX.visibility">collapsed</option>
         <option name="charting.axisTitleY.text">Logins</option>
-        <option name="charting.axisTitleY.visibility">visible</option>
+        <option name="charting.axisTitleY.visibility">collapsed</option>
         <option name="charting.axisTitleY2.text">Distinct Users</option>
         <option name="charting.axisTitleY2.visibility">visible</option>
         <option name="charting.axisX.abbreviation">none</option>
@@ -184,13 +206,125 @@
         <option name="charting.layout.splitSeries.allowIndependentYRanges">0</option>
         <option name="charting.legend.labelStyle.overflowMode">ellipsisMiddle</option>
         <option name="charting.legend.mode">standard</option>
-        <option name="charting.legend.placement">top</option>
+        <option name="charting.legend.placement">left</option>
         <option name="charting.lineWidth">2</option>
         <option name="refresh.display">progressbar</option>
         <option name="trellis.enabled">0</option>
         <option name="trellis.scales.shared">1</option>
         <option name="trellis.size">medium</option>
       </chart>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <html>
+        <h1 align="center">Successful Logins</h1>
+      </html>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <title>Successful Logins by User</title>
+      <table>
+        <search base="userLogins_baseSearch">
+          <query>| search info=succeeded 
+| stats sparkline count values(host) as "hosts" values(clientip) as "client ips" by user
+| sort - count</query>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="rowNumbers">true</option>
+        <format type="color" field="count">
+          <colorPalette type="minMidMax" maxColor="#DC4E41" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="1"></scale>
+        </format>
+        <format type="color" field="user">
+          <colorPalette type="sharedList"></colorPalette>
+          <scale type="sharedCategory"></scale>
+        </format>
+      </table>
+    </panel>
+    <panel>
+      <title>Logins by Useragent</title>
+      <chart>
+        <search base="userLogins_baseSearch">
+          <query>| stats count by useragent</query>
+        </search>
+        <option name="charting.chart">pie</option>
+        <option name="charting.drilldown">none</option>
+      </chart>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <title>Successful Login Details</title>
+      <table>
+        <search base="userLogins_baseSearch">
+          <query>| search info=succeeded 
+| table _time user host clientip useragent info
+| sort - _time</query>
+        </search>
+        <option name="count">5</option>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+        <format type="color" field="info">
+          <colorPalette type="map">{"failed":#DC4E41}</colorPalette>
+        </format>
+        <format type="color" field="user">
+          <colorPalette type="sharedList"></colorPalette>
+          <scale type="sharedCategory"></scale>
+        </format>
+      </table>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <html>
+        <h1 align="center">Failed Logins</h1>
+      </html>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <title>Failed Logins by User</title>
+      <table>
+        <search base="userLogins_baseSearch">
+          <query>| search info=failed 
+| stats sparkline count values(host) as "hosts" values(src) as "sources" by user
+| sort - count</query>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="rowNumbers">true</option>
+        <format type="color" field="count">
+          <colorPalette type="minMidMax" maxColor="#DC4E41" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="1"></scale>
+        </format>
+        <format type="color" field="user">
+          <colorPalette type="sharedList"></colorPalette>
+          <scale type="sharedCategory"></scale>
+        </format>
+      </table>
+    </panel>
+    <panel>
+      <title>Failed Login Details</title>
+      <table>
+        <search base="userLogins_baseSearch">
+          <query>| search info=failed 
+| table _time user host src info
+| sort - _time</query>
+        </search>
+        <option name="count">5</option>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+        <format type="color" field="info">
+          <colorPalette type="map">{"failed":#DC4E41}</colorPalette>
+        </format>
+        <format type="color" field="user">
+          <colorPalette type="sharedList"></colorPalette>
+          <scale type="sharedCategory"></scale>
+        </format>
+      </table>
     </panel>
   </row>
 </form>
