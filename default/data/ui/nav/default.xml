@@ -1,7 +1,8 @@
 <nav search_view="search">
-  <view name="home" />
+  <view name="home" default="true" />
   <collection label="RBAC" >
     <view name="rbac_explorer" />
+    <view name="search_explorer" />
   </collection>
   <collection label="Data Ingestion" >
     <view name="event_flow" />
@@ -10,12 +11,14 @@
   <collection label="User Adoption" >
     <view name="user_logins" />
     <view name="dashboard_adoption" />
+    <view name="popular_data" />
     <view name="alert_adoption" />
   </collection>
   <collection label="Deployment Monitoring">
     <view name="server_overview" />
     <view name="bucket_explorer" />
   </collection>
+  <view name="search" />
   <collection label="Explore Content">
     <view name="datasets" />
     <view name="reports" />
