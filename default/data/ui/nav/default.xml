@@ -9,11 +9,12 @@
   </collection>
   <collection label="User Adoption" >
     <view name="user_logins" />
-    <view name="dashboard_adoption"/>
-    <view name="alert_adoption"/>
+    <view name="dashboard_adoption" />
+    <view name="alert_adoption" />
   </collection>
   <collection label="Deployment Monitoring">
-    <view name="bucket_explorer"/>
+    <view name="server_overview" />
+    <view name="bucket_explorer" />
   </collection>
   <collection label="Explore Content">
     <view name="datasets" />
