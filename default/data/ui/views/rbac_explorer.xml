@@ -162,7 +162,8 @@
         <fieldForValue>title</fieldForValue>
         <search>
           <query>| rest /services/authorization/roles
-| fields title</query>
+| fields title
+| dedup title</query>
           <earliest>0</earliest>
           <latest></latest>
         </search>
@@ -210,7 +211,8 @@
         <fieldForValue>title</fieldForValue>
         <search>
           <query>| rest /services/authentication/users
-| fields title</query>
+| fields title
+| dedup title</query>
           <earliest>0</earliest>
           <latest></latest>
         </search>
@@ -227,7 +229,8 @@
         <fieldForValue>title</fieldForValue>
         <search>
           <query>| rest /services/authorization/roles
-| fields title</query>
+| fields title
+| dedup title</query>
           <earliest>0</earliest>
           <latest></latest>
         </search>
