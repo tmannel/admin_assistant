@@ -3,9 +3,9 @@
   <description>Explore data in event indexes. All inputs require  the SUBMIT button.</description>
   <search id="eventFlow_baseSearch">
     <query>
-      | tstats prestats=t summariesonly=t count where index=* by _time index sourcetype host source splunk_server
+      | tstats prestats=t summariesonly=t count where $indexToken$ by _time index sourcetype host source splunk_server
       | fields _time index sourcetype host source splunk_server
-      | search $indexToken$ AND $sourcetypeToken$ AND $hostToken$ AND $splunk_serverToken$
+      | search $sourcetypeToken$ AND $hostToken$ AND $splunk_serverToken$
     </query>
     <earliest>$eventFlow_timepicker.earliest$</earliest>
     <latest>$eventFlow_timepicker.latest$</latest>
@@ -18,18 +18,25 @@
         <latest>now</latest>
       </default>
     </input>
-    <input type="dropdown" token="indexToken">
+    <input type="multiselect" token="indexToken">
       <label>Filter by Index</label>
       <choice value="*">All</choice>
+      <choice value="* NOT index=&quot;_*&quot;">All non-internal</choice>
+      <choice value="&quot;_*&quot;">All internal</choice>
+      <default>"* NOT index=""_*"""</default>
+      <prefix>(</prefix>
+      <suffix>)</suffix>
+      <valuePrefix>index=</valuePrefix>
+      <delimiter> OR </delimiter>
       <fieldForLabel>title</fieldForLabel>
       <fieldForValue>title</fieldForValue>
       <search>
-        <query>|  rest services/data/indexes</query>
+        <query>|  rest services/data/indexes
+| fields title
+| dedup title</query>
         <earliest>-24h@h</earliest>
         <latest>now</latest>
       </search>
-      <prefix>index=</prefix>
-      <default>*</default>
     </input>
     <input type="multiselect" token="sourcetypeToken">
       <label>Filter by Sourcetype</label>
@@ -139,9 +146,8 @@
       <chart>
         <title>split events over time</title>
         <search base="eventFlow_baseSearch">
-          <query>
-            | timechart count by $splitBy_OverTime$
-            </query>
+          <query>| eval index=ltrim(index, "VALUE")
+| timechart count by $splitBy_OverTime$</query>
         </search>
         <option name="charting.axisLabelsX.majorLabelStyle.overflowMode">ellipsisNone</option>
         <option name="charting.axisLabelsX.majorLabelStyle.rotation">-45</option>
