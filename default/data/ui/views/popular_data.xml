@@ -1,11 +1,21 @@
-<form>
+<form theme="light">
   <label>Popular Data</label>
   <description>Which data is searched most often? Limited to completed searches only.</description>
   <!-- Base Search -->
   <search id="searchExplorer_baseSearch">
     <query>
-      index=_audit source=audittrail sourcetype=audittrail action=search info=completed $search_userToken$ $searchFilter$ $roleToken$
-      | fields _time user roles info savedsearch_name total_run_time search_type search exec_time api_lt api_et event_count drop_count searched_buckets
+      index=_audit source=audittrail sourcetype=audittrail action=search info=completed $search_userToken$ $searchFilter$
+      | fields _time user roles savedsearch_name total_run_time search_type search exec_time api_lt api_et event_count drop_count searched_buckets
+      | rex "search=\'(?&lt;thesearch&gt;(?:\n|.)*?)\'\, autojoin" 
+      | rex field=search "(?:[^\"\']|^)index=(?&lt;indexes_searched&gt;[^\s\=]+)" 
+      | rex field=search "(?:[^\"\']|^)sourcetype=(?&lt;sourcetypes_searched&gt;[^\s\=]+)" 
+      | rex field=search "(?:[^\"\']|^)host=(?&lt;hosts_searched&gt;[^\s\=]+)" 
+      | rex field=search "(?&lt;macros_searched&gt;\`[^\s]+\`)" 
+      | foreach *_searched 
+          [ eval &lt;&lt;FIELD&gt;&gt;=ltrim(rtrim(&lt;&lt;FIELD&gt;&gt;, "\'\)\"\|"), "\'\)\"\|")] 
+      | eval roles=ltrim(rtrim(roles,"'"),"'")
+      | makemv roles delim=+
+      | search $roleToken$
     </query>
     <earliest>$search_timepicker.earliest$</earliest>
     <latest>$search_timepicker.latest$</latest>
@@ -14,7 +24,7 @@
     <input type="time" token="search_timepicker">
       <label>Time Range</label>
       <default>
-        <earliest>-60m@m</earliest>
+        <earliest>@w0</earliest>
         <latest>now</latest>
       </default>
     </input>
@@ -64,16 +74,29 @@
   </fieldset>
   <row>
     <panel>
-      <title>Top Indexes Searched</title>
+      <html encoded="1">&lt;div class="expand-html-margins"&gt;
+            &lt;h1 align="center"&gt;Common Search Terms&lt;/h1&gt;
+            &lt;p align="center"&gt;Look for common queries like 'index='.&lt;/p&gt;
+          &lt;/div&gt;</html>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <title>Top Search Terms</title>
+      <input type="radio" token="popularData_splitBy" searchWhenChanged="true">
+        <label>Split Searches By</label>
+        <choice value="indexes_searched">Index(es) searched</choice>
+        <choice value="sourcetypes_searched">Sourcetype(s) searched</choice>
+        <choice value="macros_searched">Macro(s) searched</choice>
+        <choice value="hosts_searched">Host(s) searched</choice>
+        <default>indexes_searched</default>
+      </input>
       <table>
         <search base="searchExplorer_baseSearch">
-          <query>| rex "search=\'(?&lt;thesearch&gt;(?:\n|.)*?)\'\, autojoin"
-| rex max_match=100 field=search "(?:[^\"\']|^)index=(?&lt;indexes_searched&gt;[^\s\=]+)"
-| stats dc(user) as "Distinct Users" mode(user) as "Top User" dc(savedsearch_name) as "Saved Searches" dc(search) as "Distinct Searches" sparkline count by indexes_searched roles
+          <query>| stats dc(user) as "Distinct Users" mode(user) as "Top User" mode(roles) as "Top Roles" dc(savedsearch_name) as "Saved Searches" dc(search) as "Distinct Searches" sparkline as trend count by $popularData_splitBy$ 
 | sort - count</query>
         </search>
         <option name="drilldown">none</option>
-        <option name="refresh.display">progressbar</option>
         <option name="rowNumbers">true</option>
         <format type="number" field="count">
           <option name="precision">0</option>
@@ -90,63 +113,71 @@
           <colorPalette type="minMidMax" maxColor="#5A4575" minColor="#FFFFFF"></colorPalette>
           <scale type="minMidMax" minValue="0"></scale>
         </format>
+        <format type="color" field="Distinct Users">
+          <colorPalette type="minMidMax" maxColor="#62B3B2" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="1"></scale>
+        </format>
+        <format type="color" field="sourcetypes_searched">
+          <colorPalette type="sharedList"></colorPalette>
+          <scale type="sharedCategory"></scale>
+        </format>
       </table>
+    </panel>
+    <panel>
+      <title>Search Term Prevalence Over Time</title>
+      <chart>
+        <title>Search query over time</title>
+        <search base="searchExplorer_baseSearch">
+          <query>| timechart usenull=f count by $popularData_splitBy$</query>
+        </search>
+        <!-- Custom gray color on 'search term not used' -->
+        <option name="charting.axisTitleX.visibility">collapsed</option>
+        <option name="charting.axisTitleY.visibility">collapsed</option>
+        <option name="charting.axisTitleY2.visibility">collapsed</option>
+        <option name="charting.axisY2.enabled">1</option>
+        <option name="charting.chart">column</option>
+        <option name="charting.chart.overlayFields">"search term not used"</option>
+        <option name="charting.chart.stackMode">stacked</option>
+        <option name="charting.drilldown">none</option>
+        <option name="charting.fieldColors">{"search term not used":D3D3D3}</option>
+        <option name="charting.legend.placement">left</option>
+        <option name="refresh.display">progressbar</option>
+      </chart>
+      <chart>
+        <title>Percent of searches where term is used</title>
+        <search base="searchExplorer_baseSearch">
+          <query>| fillnull value="search term not used" $popularData_splitBy$ 
+| timechart count by $popularData_splitBy$</query>
+        </search>
+        <!-- Custom gray color on 'search term not used' -->
+        <!-- Show percent so users can see how often query is used -->
+        <option name="charting.axisTitleX.visibility">collapsed</option>
+        <option name="charting.axisTitleY.visibility">collapsed</option>
+        <option name="charting.axisTitleY2.visibility">visible</option>
+        <option name="charting.chart">column</option>
+        <option name="charting.chart.nullValueMode">zero</option>
+        <option name="charting.chart.showDataLabels">none</option>
+        <option name="charting.chart.showPercent">1</option>
+        <option name="charting.chart.stackMode">stacked100</option>
+        <option name="charting.drilldown">none</option>
+        <option name="charting.fieldColors">{"search term not used":D3D3D3}</option>
+        <option name="charting.legend.placement">left</option>
+        <option name="refresh.display">progressbar</option>
+      </chart>
     </panel>
   </row>
   <row>
     <panel>
-      <title>Top Macros Searched</title>
-      <table>
-        <search base="searchExplorer_baseSearch">
-          <query>| rex "search=\'(?&lt;thesearch&gt;(?:\n|.)*?)\'\, autojoin"
-| rex max_match=100 field=search "(?&lt;macros&gt;\`[^\s]+\`)"
-| stats dc(user) as "Distinct Users" mode(user) as "Top User" dc(savedsearch_name) as "Saved Searches" dc(search) as "Distinct Searches" sparkline count by macros roles
-| sort - count</query>
-        </search>
-        <option name="drilldown">none</option>
-        <option name="refresh.display">progressbar</option>
-        <option name="rowNumbers">true</option>
-        <format type="number" field="count">
-          <option name="precision">0</option>
-        </format>
-        <format type="color" field="count">
-          <colorPalette type="minMidMax" maxColor="#006D9C" minColor="#FFFFFF"></colorPalette>
-          <scale type="minMidMax" minValue="0"></scale>
-        </format>
-        <format type="color" field="Distinct Searches">
-          <colorPalette type="minMidMax" maxColor="#5A4575" minColor="#FFFFFF"></colorPalette>
-          <scale type="minMidMax" minValue="1"></scale>
-        </format>
-        <format type="color" field="Saved Searches">
-          <colorPalette type="minMidMax" maxColor="#5A4575" minColor="#FFFFFF"></colorPalette>
-          <scale type="minMidMax" minValue="0"></scale>
-        </format>
-      </table>
+      <html encoded="1">&lt;h1 align="center"&gt;Data Popularity by Role&lt;/h1&gt;
+        &lt;p align="center"&gt;Monitor adoption and compliance with RBAC model.&lt;/p&gt;</html>
     </panel>
   </row>
   <row>
-    <panel>
-      <title>Top Users</title>
-      <table>
-        <search base="searchExplorer_baseSearch">
-          <query>|  stats sparkline count as totalCount dc(savedsearch_name) as " Distinct Saved Searches" dc(search) as "Distinct Searches" values(roles) as "Roles" by user</query>
-        </search>
-        <option name="drilldown">none</option>
-        <option name="refresh.display">progressbar</option>
-        <format type="color" field="totalCount">
-          <colorPalette type="minMidMax" maxColor="#006D9C" minColor="#FFFFFF"></colorPalette>
-          <scale type="minMidMax" minValue="1"></scale>
-        </format>
-        <format type="number" field="totalCount">
-          <option name="precision">0</option>
-        </format>
-      </table>
-    </panel>
     <panel>
       <title>Top Roles</title>
       <table>
         <search base="searchExplorer_baseSearch">
-          <query>| stats sparkline count dc(user) as "Distinct Users" mode(user) as "Top User" dc(savedsearch_name) as "Distinct Saved Searches" dc(search) as "Distinct Searches" by roles
+          <query>| stats dc(user) as "Distinct Users" mode(user) as "Top User" dc(savedsearch_name) as "Distinct Saved Searches" dc(search) as "Distinct Searches" sparkline as trend count by roles 
 | sort - count</query>
         </search>
         <option name="count">5</option>
@@ -159,64 +190,23 @@
         <format type="number" field="count">
           <option name="precision">0</option>
         </format>
+        <format type="number" field="Distinct Searches">
+          <option name="precision">0</option>
+        </format>
+        <format type="number" field="Distinct Saved Searches">
+          <option name="precision">0</option>
+        </format>
       </table>
     </panel>
-  </row>
-  <row>
     <panel>
-      <title>Search Details</title>
-      <table>
+      <title>Popular Search Terms by $popularData_splitBy$</title>
+      <viz type="sankey_diagram_app.sankey_diagram">
         <search base="searchExplorer_baseSearch">
-          <query>| eval range_sec=api_lt-api_et
-| foreach api_* exec_time _time
-    [ eval &lt;&lt;FIELD&gt;&gt;=strftime(&lt;&lt;FIELD&gt;&gt;, "%Y-%m-%d %H:%M:%S")] 
-| rename api_et as "Range (earliest)", api_lt as "Range (latest)"
-| table _time exec_time user roles info savedsearch_name total_run_time search indexes "Range (earliest)" "Range (latest)" range_sec event_count
-| sort - _time</query>
+          <query>| stats count by $popularData_splitBy$ roles</query>
         </search>
-        <option name="count">10</option>
-        <option name="dataOverlayMode">none</option>
-        <option name="drilldown">cell</option>
-        <option name="percentagesRow">false</option>
+        <option name="drilldown">none</option>
         <option name="refresh.display">progressbar</option>
-        <option name="rowNumbers">true</option>
-        <option name="totalsRow">false</option>
-        <option name="wrap">true</option>
-        <format type="color" field="total_run_time">
-          <colorPalette type="minMidMax" maxColor="#DC4E41" minColor="#FFFFFF"></colorPalette>
-          <scale type="minMidMax" minValue="0"></scale>
-        </format>
-        <format type="color" field="info">
-          <colorPalette type="map">{"completed":#53A051,"canceled":#F8BE34,"failed":#DC4E41,"cancel":#F8BE34,"granted":#006400}</colorPalette>
-        </format>
-        <format type="color" field="drop_count">
-          <colorPalette type="minMidMax" maxColor="#DC4E41" minColor="#FFFFFF"></colorPalette>
-          <scale type="minMidMax" minValue="0"></scale>
-        </format>
-        <format type="color" field="event_count">
-          <colorPalette type="minMidMax" maxColor="#5A4575" minColor="#FFFFFF"></colorPalette>
-          <scale type="minMidMax" minValue="0"></scale>
-        </format>
-        <format type="color" field="searched_buckets">
-          <colorPalette type="minMidMax" maxColor="#006D9C" minColor="#FFFFFF"></colorPalette>
-          <scale type="minMidMax" minValue="1"></scale>
-        </format>
-        <format type="color" field="user">
-          <colorPalette type="sharedList"></colorPalette>
-          <scale type="sharedCategory"></scale>
-        </format>
-        <format type="number" field="event_count">
-          <option name="precision">0</option>
-        </format>
-        <format type="number" field="range_sec">
-          <option name="precision">0</option>
-          <option name="unit">s</option>
-        </format>
-        <format type="color" field="range_sec">
-          <colorPalette type="minMidMax" maxColor="#AF575A" minColor="#FFFFFF"></colorPalette>
-          <scale type="minMidMax" minValue="0"></scale>
-        </format>
-      </table>
+      </viz>
     </panel>
   </row>
 </form>
