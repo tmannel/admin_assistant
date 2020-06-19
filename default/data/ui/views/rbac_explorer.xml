@@ -14,6 +14,7 @@
       | rest /services/authorization/roles 
       | dedup title 
       | eval number_capabilities=mvcount(capabilities)
+      | eval capabilities_configured=if(number_capabilities &gt; 0, "y", "n")
       | eval type=if(match(title,"^(?:admin|can_delete|power|splunk-system-role|user|ess_admin|ess_analyst|ess_user)$$"),"default","custom")
       | join type=left title 
           [| rest /services/authentication/users 
@@ -161,26 +162,6 @@
         <choice value="*">All</choice>
         <initialValue>*</initialValue>
       </input>
-      <input type="multiselect" token="capabilitiesToken" searchWhenChanged="true">
-        <label>Filter by Capabilities</label>
-        <choice value="*">All</choice>
-        <prefix>(</prefix>
-        <suffix>)</suffix>
-        <initialValue>*</initialValue>
-        <valuePrefix>(capabilities=</valuePrefix>
-        <valueSuffix>) OR number_capabilities!=*</valueSuffix>
-        <delimiter> OR</delimiter>
-        <fieldForLabel>capabilities</fieldForLabel>
-        <fieldForValue>capabilities</fieldForValue>
-        <search>
-          <query>| rest services/authorization/capabilities
-| fields capabilities
-| mvexpand capabilities
-| dedup capabilities</query>
-          <earliest>-24h@h</earliest>
-          <latest>now</latest>
-        </search>
-      </input>
       <input type="dropdown" token="srchIndexesAllowed_token" searchWhenChanged="true">
         <label>srchIndexesAllowed</label>
         <choice value="">- any -</choice>
@@ -218,7 +199,7 @@
       <table>
         <title>Queries REST /services/authorization/roles for all indexes allowed by a role and its inherited roles.</title>
         <search base="roles_base_search">
-          <query>| search $role_token$ $srchIndexesAllowed_token$ $capabilitiesToken$
+          <query>| search $role_token$ $srchIndexesAllowed_token$
 | eval capabilities=mvjoin(capabilities,"; ")
 | table title srchIndexesAllowed srchIndexesDefault srchFilter imported_roles imported_srchIndexesAllowed imported_srchFilter defaultApp author number_capabilities capabilities number_users
 | sort - number_users updated</query>
@@ -227,6 +208,7 @@
         <option name="dataOverlayMode">none</option>
         <option name="drilldown">none</option>
         <option name="percentagesRow">false</option>
+        <option name="refresh.display">progressbar</option>
         <option name="rowNumbers">true</option>
         <option name="totalsRow">false</option>
         <option name="wrap">true</option>
@@ -335,101 +317,6 @@
         <option name="trellis.scales.shared">1</option>
         <option name="trellis.size">medium</option>
       </viz>
-    </panel>
-  </row>
-  <row>
-    <panel>
-      <html>
-        <h1 align="center">User and Role Modification History</h1>
-      </html>
-    </panel>
-  </row>
-  <row>
-    <panel>
-      <input type="time" token="userEdits_timerange" searchWhenChanged="true">
-        <label>Time Range</label>
-        <default>
-          <earliest>@w0</earliest>
-          <latest>now</latest>
-        </default>
-      </input>
-      <input type="multiselect" token="operationToken" searchWhenChanged="true">
-        <label>Filter by Operation</label>
-        <choice value="create">create</choice>
-        <choice value="edit">edit</choice>
-        <choice value="remove">remove</choice>
-        <choice value="list">list</choice>
-        <default>create,edit,remove</default>
-        <prefix>(</prefix>
-        <suffix>)</suffix>
-        <valuePrefix>operation=</valuePrefix>
-        <delimiter> OR </delimiter>
-      </input>
-      <viz type="timeline_app.timeline">
-        <title>Queries audit log, separates by user object, and colors by operation. List operations not shown.</title>
-        <search>
-          <query>index=_audit info=* (action=edit_user OR edit_roles) $operationToken$ info=*
-| transaction user object operation
-| table _time object operation duration</query>
-          <earliest>$userEdits_timerange.earliest$</earliest>
-          <latest>$userEdits_timerange.latest$</latest>
-          <sampleRatio>1</sampleRatio>
-        </search>
-        <option name="drilldown">none</option>
-        <option name="refresh.display">progressbar</option>
-        <option name="timeline_app.timeline.axisTimeFormat">DAYS</option>
-        <option name="timeline_app.timeline.colorMode">categorical</option>
-        <option name="timeline_app.timeline.maxColor">#DA5C5C</option>
-        <option name="timeline_app.timeline.minColor">#FFE8E8</option>
-        <option name="timeline_app.timeline.numOfBins">6</option>
-        <option name="timeline_app.timeline.tooltipTimeFormat">SECONDS</option>
-        <option name="timeline_app.timeline.useColors">1</option>
-        <option name="trellis.enabled">0</option>
-        <option name="trellis.scales.shared">1</option>
-        <option name="trellis.size">medium</option>
-      </viz>
-    </panel>
-  </row>
-  <row>
-    <panel>
-      <title>User and Role Modifications - Table</title>
-      <table>
-        <search>
-          <query>index=_audit info=* action=edit_user $operationToken$ info=granted
-| table user _time operation object _raw host
-| sort - _time</query>
-          <earliest>$userEdits_timerange.earliest$</earliest>
-          <latest>$userEdits_timerange.latest$</latest>
-          <sampleRatio>1</sampleRatio>
-        </search>
-        <option name="count">10</option>
-        <option name="dataOverlayMode">none</option>
-        <option name="drilldown">none</option>
-        <option name="percentagesRow">false</option>
-        <option name="refresh.display">progressbar</option>
-        <option name="rowNumbers">false</option>
-        <option name="totalsRow">false</option>
-        <option name="wrap">true</option>
-        <format type="color" field="operation">
-          <colorPalette type="map">{"remove":#DC4E41,"create":#4FA484,"edit":#294E70,"list":#62B3B2}</colorPalette>
-        </format>
-        <format type="color" field="duration">
-          <colorPalette type="minMidMax" maxColor="#DC4E41" minColor="#FFFFFF"></colorPalette>
-          <scale type="minMidMax" minValue="0"></scale>
-        </format>
-        <format type="color" field="object">
-          <colorPalette type="sharedList"></colorPalette>
-          <scale type="sharedCategory"></scale>
-        </format>
-        <format type="color" field="user">
-          <colorPalette type="sharedList"></colorPalette>
-          <scale type="sharedCategory"></scale>
-        </format>
-        <format type="number" field="duration">
-          <option name="precision">0</option>
-          <option name="unit">s</option>
-        </format>
-      </table>
     </panel>
   </row>
 </form>
