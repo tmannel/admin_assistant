@@ -20,10 +20,9 @@
     </input>
     <input type="multiselect" token="indexToken">
       <label>Filter by Index</label>
-      <choice value="*">All</choice>
+      <choice value="* OR index=&quot;_*&quot;">All</choice>
       <choice value="* NOT index=&quot;_*&quot;">All non-internal</choice>
       <choice value="&quot;_*&quot;">All internal</choice>
-      <default>"* NOT index=""_*"""</default>
       <prefix>(</prefix>
       <suffix>)</suffix>
       <valuePrefix>index=</valuePrefix>
@@ -37,11 +36,11 @@
         <earliest>-24h@h</earliest>
         <latest>now</latest>
       </search>
+      <initialValue>* NOT index="_*"</initialValue>
     </input>
     <input type="multiselect" token="sourcetypeToken">
       <label>Filter by Sourcetype</label>
       <choice value="*">All</choice>
-      <default>*</default>
       <fieldForLabel>sourcetype</fieldForLabel>
       <fieldForValue>sourcetype</fieldForValue>
       <search>
@@ -54,6 +53,7 @@
       <suffix>)</suffix>
       <valuePrefix>sourcetype=</valuePrefix>
       <delimiter> OR </delimiter>
+      <initialValue>*</initialValue>
     </input>
     <input type="text" token="hostToken">
       <label>Filter by Host</label>
@@ -72,8 +72,9 @@
       <table>
         <title>total during selected time range</title>
         <search base="eventFlow_baseSearch">
-          <query>
-            | stats  dc(index) as "Indexes Seen" dc(sourcetype) as "Sourcetypes Seen" dc(host) as "Hosts Seen" dc(source) as "Sources Seen" dc(splunk_server) as "Indexers with Buckets" sum(COUNT) as "Total Events"</query>
+          <query>| stats  dc(index) as "Indexes Seen" dc(sourcetype) as "Sourcetypes Seen" dc(host) as "Hosts Seen" dc(source) as "Sources Seen" dc(splunk_server) as "Indexers with Buckets" count as "Total Events"
+| transpose
+| rename column as Metric, "row 1" as count</query>
         </search>
         <option name="count">20</option>
         <option name="dataOverlayMode">none</option>
@@ -86,7 +87,32 @@
         <format type="number" field="Total Events">
           <option name="precision">0</option>
         </format>
+        <format type="color" field="Metric">
+          <colorPalette type="sharedList"></colorPalette>
+          <scale type="sharedCategory"></scale>
+        </format>
+        <format type="number" field="count">
+          <option name="precision">0</option>
+        </format>
       </table>
+    </panel>
+    <panel>
+      <title>Count by Indexer</title>
+      <chart>
+        <search base="eventFlow_baseSearch">
+          <query>| stats count by splunk_server</query>
+        </search>
+        <option name="charting.axisTitleX.visibility">visible</option>
+        <option name="charting.axisTitleY.visibility">visible</option>
+        <option name="charting.axisTitleY2.visibility">visible</option>
+        <option name="charting.chart">pie</option>
+        <option name="charting.chart.rangeValues">[0,30,70,100]</option>
+        <option name="charting.chart.style">minimal</option>
+        <option name="charting.drilldown">all</option>
+        <option name="charting.gaugeColors">["0x53a051","0xf8be34","0xdc4e41"]</option>
+        <option name="charting.legend.placement">right</option>
+        <option name="refresh.display">progressbar</option>
+      </chart>
     </panel>
   </row>
   <row>
@@ -141,6 +167,7 @@
         <choice value="sourcetype">sourcetype</choice>
         <choice value="host">host</choice>
         <choice value="source">source</choice>
+        <choice value="splunk_server">indexer</choice>
         <default>index</default>
       </input>
       <chart>
