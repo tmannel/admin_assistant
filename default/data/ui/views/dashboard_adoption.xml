@@ -22,7 +22,6 @@
     <input type="multiselect" token="dashboardAdoption_userFilter">
       <label>Filter by User</label>
       <choice value="*">All</choice>
-      <default>*</default>
       <prefix>(</prefix>
       <suffix>)</suffix>
       <valuePrefix>user=</valuePrefix>
@@ -36,6 +35,7 @@
         <earliest>-24h@h</earliest>
         <latest>now</latest>
       </search>
+      <initialValue>*</initialValue>
     </input>
   </fieldset>
   <row>
@@ -91,7 +91,7 @@
         <option name="charting.layout.splitSeries.allowIndependentYRanges">1</option>
         <option name="charting.legend.labelStyle.overflowMode">ellipsisMiddle</option>
         <option name="charting.legend.mode">standard</option>
-        <option name="charting.legend.placement">left</option>
+        <option name="charting.legend.placement">top</option>
         <option name="charting.lineWidth">2</option>
         <option name="refresh.display">progressbar</option>
         <option name="trellis.enabled">0</option>
@@ -106,6 +106,7 @@
         <label>Split By</label>
         <choice value="dashboard">dashboard</choice>
         <choice value="app">app</choice>
+        <choice value="user">user</choice>
         <default>dashboard</default>
       </input>
       <chart>
@@ -138,9 +139,9 @@
         <option name="charting.drilldown">none</option>
         <option name="charting.layout.splitSeries">0</option>
         <option name="charting.layout.splitSeries.allowIndependentYRanges">0</option>
-        <option name="charting.legend.labelStyle.overflowMode">ellipsisMiddle</option>
+        <option name="charting.legend.labelStyle.overflowMode">ellipsisEnd</option>
         <option name="charting.legend.mode">standard</option>
-        <option name="charting.legend.placement">left</option>
+        <option name="charting.legend.placement">bottom</option>
         <option name="charting.lineWidth">2</option>
         <option name="refresh.display">progressbar</option>
         <option name="trellis.enabled">0</option>
