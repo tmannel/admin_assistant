@@ -47,151 +47,90 @@
   </row>
   <row>
     <panel>
-      <single>
-        <search base="indexes_base_search">
-          <query>
-            | search title!="_*"
-            | stats count
-          </query>
+      <title>Number of Roles</title>
+      <table>
+        <search base="roles_base_search">
+          <query>| stats dc(title) as number_roles by type
+| addcoltotals number_roles labelfield=type label=total</query>
         </search>
-        <option name="colorBy">value</option>
-        <option name="colorMode">none</option>
         <option name="drilldown">none</option>
-        <option name="numberPrecision">0</option>
-        <option name="rangeColors">["0x555","0x555"]</option>
-        <option name="rangeValues">[0]</option>
-        <option name="showSparkline">1</option>
-        <option name="showTrendIndicator">1</option>
-        <option name="trellis.enabled">0</option>
-        <option name="trellis.scales.shared">1</option>
-        <option name="trellis.size">medium</option>
-        <option name="trendColorInterpretation">standard</option>
-        <option name="trendDisplayMode">absolute</option>
-        <option name="underLabel">Non-internal Indexes</option>
-        <option name="unitPosition">after</option>
-        <option name="useColors">1</option>
-        <option name="useThousandSeparators">1</option>
-      </single>
+        <format type="color" field="type">
+          <colorPalette type="map">{"total":#294E70}</colorPalette>
+        </format>
+        <format type="color" field="number_roles">
+          <colorPalette type="minMidMax" maxColor="#294E70" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minType="percentile" minValue="99.999999"></scale>
+        </format>
+      </table>
     </panel>
     <panel>
-      <single>
+      <title>Number of Users</title>
+      <table>
+        <search base="users_base_search">
+          <query>| eval is_admin=if(roles="admin", "y", "n")
+| stats count by is_admin type
+| addcoltotals count labelfield=type label=total</query>
+        </search>
+        <option name="drilldown">none</option>
+        <format type="color" field="is_admin">
+          <colorPalette type="map">{"total":#708794}</colorPalette>
+        </format>
+        <format type="color" field="count">
+          <colorPalette type="minMidMax" maxColor="#294E70" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minType="percentile" minValue="99.99999"></scale>
+        </format>
+        <format type="color" field="type">
+          <colorPalette type="map">{"total":#294E70}</colorPalette>
+        </format>
+      </table>
+    </panel>
+    <panel>
+      <title>Authentication Integration</title>
+      <table>
         <search>
-          <query>| rest services/admin/SAML-groups
-          | dedup title
-| stats count</query>
+          <query>| rest services/admin/SAML-groups 
+| rename title as SAML-group 
+| dedup title 
+| append 
+    [ rest services/admin/LDAP-groups 
+    | rename title as LDAP-group 
+    | dedup title] 
+| stats dc(SAML-group) as number_SAML-groups dc(LDAP-group) as number_LDAP-groups
+| transpose 
+| rename column as config, "row 1" as count
+| addcoltotals labelfield=config label=total</query>
           <earliest>-60m@m</earliest>
           <latest>now</latest>
           <sampleRatio>1</sampleRatio>
         </search>
-        <option name="colorBy">value</option>
-        <option name="colorMode">none</option>
         <option name="drilldown">none</option>
-        <option name="numberPrecision">0</option>
-        <option name="rangeColors">["0x555","0x555"]</option>
-        <option name="rangeValues">[0]</option>
-        <option name="showSparkline">1</option>
-        <option name="showTrendIndicator">1</option>
-        <option name="trellis.enabled">0</option>
-        <option name="trellis.scales.shared">1</option>
-        <option name="trellis.size">medium</option>
-        <option name="trendColorInterpretation">standard</option>
-        <option name="trendDisplayMode">absolute</option>
-        <option name="underLabel">SAML Groups</option>
-        <option name="unitPosition">after</option>
-        <option name="useColors">1</option>
-        <option name="useThousandSeparators">1</option>
-      </single>
+        <format type="color" field="config">
+          <colorPalette type="map">{"total":#294E70}</colorPalette>
+        </format>
+        <format type="color" field="count">
+          <colorPalette type="minMidMax" maxColor="#294E70" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minType="percentile" minValue="99.9999"></scale>
+        </format>
+      </table>
     </panel>
     <panel>
-      <single>
-        <search base="roles_base_search">
-          <query>| stats count</query>
-        </search>
-        <option name="colorBy">value</option>
-        <option name="colorMode">none</option>
-        <option name="drilldown">none</option>
-        <option name="numberPrecision">0</option>
-        <option name="rangeColors">["0x006d9c","0x006d9c"]</option>
-        <option name="rangeValues">[0]</option>
-        <option name="showSparkline">1</option>
-        <option name="showTrendIndicator">1</option>
-        <option name="trellis.enabled">0</option>
-        <option name="trellis.scales.shared">1</option>
-        <option name="trellis.size">medium</option>
-        <option name="trendColorInterpretation">standard</option>
-        <option name="trendDisplayMode">absolute</option>
-        <option name="underLabel">Total Roles</option>
-        <option name="unitPosition">after</option>
-        <option name="useColors">1</option>
-        <option name="useThousandSeparators">1</option>
-      </single>
-    </panel>
-    <panel>
-      <single>
-        <search base="roles_base_search">
-          <query>| where (type == "custom") 
-| stats count</query>
-        </search>
-        <option name="colorBy">value</option>
-        <option name="colorMode">none</option>
-        <option name="drilldown">none</option>
-        <option name="numberPrecision">0</option>
-        <option name="rangeColors">["0x006d9c","0x006d9c"]</option>
-        <option name="rangeValues">[0]</option>
-        <option name="refresh.display">progressbar</option>
-        <option name="showSparkline">1</option>
-        <option name="showTrendIndicator">1</option>
-        <option name="trellis.enabled">0</option>
-        <option name="trellis.scales.shared">1</option>
-        <option name="trellis.size">medium</option>
-        <option name="trendColorInterpretation">standard</option>
-        <option name="trendDisplayMode">absolute</option>
-        <option name="underLabel">Custom Roles</option>
-        <option name="unitPosition">after</option>
-        <option name="useColors">1</option>
-        <option name="useThousandSeparators">1</option>
-      </single>
-    </panel>
-    <panel>
-      <single>
-        <search base="users_base_search">
-          <query>| search roles=admin
-| stats count</query>
-        </search>
-        <option name="colorBy">value</option>
-        <option name="colorMode">none</option>
-        <option name="drilldown">none</option>
-        <option name="numberPrecision">0</option>
-        <option name="rangeColors">["0x53a051","0x53a051"]</option>
-        <option name="rangeValues">[0]</option>
-        <option name="refresh.display">progressbar</option>
-        <option name="showSparkline">1</option>
-        <option name="showTrendIndicator">1</option>
-        <option name="trellis.enabled">0</option>
-        <option name="trellis.scales.shared">1</option>
-        <option name="trellis.size">medium</option>
-        <option name="trendColorInterpretation">standard</option>
-        <option name="trendDisplayMode">absolute</option>
-        <option name="underLabel">Admins</option>
-        <option name="unitPosition">after</option>
-        <option name="useColors">1</option>
-        <option name="useThousandSeparators">1</option>
-      </single>
-    </panel>
-    <panel>
-      <single>
-        <search base="users_base_search">
+      <title>Number of Indexes</title>
+      <table>
+        <search base="indexes_base_search">
           <query>
-            | stats count
-          </query>
+| rename eai:acl.app as app
+| stats count as number_indexes by app
+| addcoltotals number_indexes labelfield=app label=total</query>
         </search>
         <option name="drilldown">none</option>
-        <option name="rangeColors">["0x53a051","0x53a051"]</option>
-        <option name="rangeValues">[0]</option>
-        <option name="refresh.display">progressbar</option>
-        <option name="underLabel">Total Users</option>
-        <option name="useColors">1</option>
-      </single>
+        <format type="color" field="app">
+          <colorPalette type="map">{"total":#294E70}</colorPalette>
+        </format>
+        <format type="color" field="number_indexes">
+          <colorPalette type="minMidMax" maxColor="#294E70" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minType="percentile" minValue="99.9999999"></scale>
+        </format>
+      </table>
     </panel>
   </row>
   <row>
@@ -221,6 +160,26 @@
         </search>
         <choice value="*">All</choice>
         <initialValue>*</initialValue>
+      </input>
+      <input type="multiselect" token="capabilitiesToken" searchWhenChanged="true">
+        <label>Filter by Capabilities</label>
+        <choice value="*">All</choice>
+        <prefix>(</prefix>
+        <suffix>)</suffix>
+        <initialValue>*</initialValue>
+        <valuePrefix>(capabilities=</valuePrefix>
+        <valueSuffix>) OR number_capabilities!=*</valueSuffix>
+        <delimiter> OR</delimiter>
+        <fieldForLabel>capabilities</fieldForLabel>
+        <fieldForValue>capabilities</fieldForValue>
+        <search>
+          <query>| rest services/authorization/capabilities
+| fields capabilities
+| mvexpand capabilities
+| dedup capabilities</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
       </input>
       <input type="dropdown" token="srchIndexesAllowed_token" searchWhenChanged="true">
         <label>srchIndexesAllowed</label>
@@ -259,15 +218,16 @@
       <table>
         <title>Queries REST /services/authorization/roles for all indexes allowed by a role and its inherited roles.</title>
         <search base="roles_base_search">
-          <query>| search $role_token$ $srchIndexesAllowed_token$
-| table title srchIndexesAllowed srchIndexesDefault srchFilter imported_roles imported_srchIndexesAllowed imported_srchFilter defaultApp author number_capabilities number_users
+          <query>| search $role_token$ $srchIndexesAllowed_token$ $capabilitiesToken$
+| eval capabilities=mvjoin(capabilities,"; ")
+| table title srchIndexesAllowed srchIndexesDefault srchFilter imported_roles imported_srchIndexesAllowed imported_srchFilter defaultApp author number_capabilities capabilities number_users
 | sort - number_users updated</query>
         </search>
         <option name="count">20</option>
         <option name="dataOverlayMode">none</option>
         <option name="drilldown">none</option>
         <option name="percentagesRow">false</option>
-        <option name="rowNumbers">false</option>
+        <option name="rowNumbers">true</option>
         <option name="totalsRow">false</option>
         <option name="wrap">true</option>
         <format type="color" field="number_users">
