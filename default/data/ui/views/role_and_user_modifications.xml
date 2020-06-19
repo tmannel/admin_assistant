@@ -1,0 +1,123 @@
+<form theme="light">
+  <label>Role and User Modifications</label>
+  <description>View changes made to users and roles.</description>
+  <!-- Base search to list indexes -->
+  <search id="rbacMods_base_search">
+    <query>
+        index=_audit info=granted (action=edit_user OR edit_role) 
+        | fields _time user action operation object host sourcetype
+    </query>
+    <earliest>$rbacMods_timepicker.earliest$</earliest>
+    <latest>$rbacMods_timepicker.latest$</latest>
+  </search>
+  <fieldset submitButton="true" autoRun="true">
+    <input type="time" token="rbacMods_timepicker" searchWhenChanged="false">
+      <label>Time Range</label>
+      <default>
+        <earliest>@w0</earliest>
+        <latest>now</latest>
+      </default>
+    </input>
+    <input type="multiselect" token="operationToken" searchWhenChanged="false">
+      <label>Filter by Operation</label>
+      <choice value="create">create</choice>
+      <choice value="edit">edit</choice>
+      <choice value="remove">remove</choice>
+      <choice value="list">list</choice>
+      <default>create,edit,remove</default>
+      <prefix>(</prefix>
+      <suffix>)</suffix>
+      <valuePrefix>operation=</valuePrefix>
+      <delimiter> OR </delimiter>
+    </input>
+    <input type="multiselect" token="objectToken" searchWhenChanged="false">
+      <label>Filter by Object</label>
+      <choice value="*">All</choice>
+      <prefix>(</prefix>
+      <suffix>)</suffix>
+      <initialValue>*</initialValue>
+      <valuePrefix>object=</valuePrefix>
+      <delimiter> OR </delimiter>
+      <fieldForLabel>object</fieldForLabel>
+      <fieldForValue>object</fieldForValue>
+      <search base="rbacMods_base_search">
+        <query>| fields object 
+| dedup object</query>
+      </search>
+    </input>
+  </fieldset>
+  <row>
+    <panel>
+      <html>
+        <h1 align="center">User and Role Modification History</h1>
+      </html>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <title>Modifications over Time</title>
+      <input type="dropdown" token="rbacMod_splitBy" searchWhenChanged="true">
+        <label>Split by</label>
+        <choice value="object">object</choice>
+        <choice value="operation">operation</choice>
+        <choice value="user">user</choice>
+        <default>object</default>
+      </input>
+      <chart>
+        <title>Queries audit log, separates by user object, and colors by operation. List operations not shown.</title>
+        <search base="rbacMods_base_search">
+          <query>| search $objectToken$ $operationToken$
+| transaction user object operation maxspan=10m 
+| timechart count by $rbacMod_splitBy$</query>
+        </search>
+        <option name="charting.chart">column</option>
+        <option name="charting.chart.stackMode">stacked</option>
+        <option name="charting.drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="trellis.enabled">0</option>
+        <option name="trellis.scales.shared">1</option>
+        <option name="trellis.size">medium</option>
+      </chart>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <title>User and Role Modifications - Table</title>
+      <table>
+        <search base="rbacMods_base_search">
+          <query>| search $objectToken$ $operationToken$ action!="search"
+| eval _time=strftime(_time, "%Y-%m-%d %H:%M:%S")
+| table user _time operation action object _raw host
+| sort - _time</query>
+        </search>
+        <option name="count">10</option>
+        <option name="dataOverlayMode">none</option>
+        <option name="drilldown">none</option>
+        <option name="percentagesRow">false</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="rowNumbers">false</option>
+        <option name="totalsRow">false</option>
+        <option name="wrap">true</option>
+        <format type="color" field="operation">
+          <colorPalette type="map">{"remove":#DC4E41,"create":#4FA484,"edit":#294E70,"list":#62B3B2}</colorPalette>
+        </format>
+        <format type="color" field="duration">
+          <colorPalette type="minMidMax" maxColor="#DC4E41" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="0"></scale>
+        </format>
+        <format type="color" field="object">
+          <colorPalette type="sharedList"></colorPalette>
+          <scale type="sharedCategory"></scale>
+        </format>
+        <format type="color" field="user">
+          <colorPalette type="sharedList"></colorPalette>
+          <scale type="sharedCategory"></scale>
+        </format>
+        <format type="number" field="duration">
+          <option name="precision">0</option>
+          <option name="unit">s</option>
+        </format>
+      </table>
+    </panel>
+  </row>
+</form>
