@@ -1,16 +1,18 @@
-<form theme="light">
+<form theme="light" stylesheet="admin_assistant_stylesheet.css">
   <label>Dashboard Adoption</label>
+  <description>Explore use of dashboards over time.  Base search queries splunkd_ui_access.</description>
   <!-- Base Search -->
   <search id="dashboardAdoption_baseSearch">
     <query>
       index="_internal" sourcetype=splunkd_ui_access $dashboardAdoption_userFilter$ "en-US/app" 
-      | fields _time user bytes uri_path date_hour date_mday date_wday date_hour file sid spent
+      | fields _time user bytes uri_path file sid spent
       | rex field=uri_path "en-US/app/(?&lt;app&gt;[^/]+)/(?&lt;dashboard&gt;[^?/\s]+)" 
     </query>
     <earliest>$dashboardAdoption_timepicker.earliest$</earliest>
     <latest>$dashboardAdoption_timepicker.latest$</latest>
   </search>
-  <description>Explore use of dashboards over time.  Base search queries splunkd_ui_access.</description>
+  <!-- Form Inputs -->
+  <!-- Panels Begin -->
   <fieldset submitButton="true" autoRun="true">
     <input type="time" token="dashboardAdoption_timepicker" searchWhenChanged="false">
       <label>Time Range</label>
@@ -39,7 +41,71 @@
     </input>
   </fieldset>
   <row>
+    <panel id="html_header1">
+      <html encoded="1">&lt;h1 align="center"&gt;Dashboards Overview&lt;/h1&gt;
+      </html>
+    </panel>
+  </row>
+  <row>
     <panel>
+      <title>Dashboard Adoption Metrics</title>
+      <table>
+        <title>User Activity for time range selected above.</title>
+        <search base="dashboardAdoption_baseSearch">
+          <query>| stats count as "Total Count" dc(user) as "Distinct Users" dc(app) as "Distinct Apps" dc(dashboard) as "Distinct Dashboards"
+| transpose
+| rename column as metric, "row 1" as value</query>
+        </search>
+        <option name="drilldown">none</option>
+        <format type="color" field="metric">
+          <colorPalette type="sharedList"></colorPalette>
+          <scale type="sharedCategory"></scale>
+        </format>
+      </table>
+    </panel>
+    <panel>
+      <title>Total Dashboards</title>
+      <table>
+        <title>by rootNode</title>
+        <search>
+          <query>|  rest services/data/ui/views
+| dedup title
+| stats count by rootNode
+| sort - count
+| addcoltotals count labelfield=rootNode label=total</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <format type="color" field="rootNode">
+          <colorPalette type="map">{"total":#294E70}</colorPalette>
+        </format>
+        <format type="color" field="count">
+          <colorPalette type="minMidMax" maxColor="#294E70" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minType="percentile" minValue="99.99999"></scale>
+        </format>
+      </table>
+    </panel>
+    <panel>
+      <title>Total Dashboards by App</title>
+      <chart>
+        <title>ALL configured dashboards - NOT a count of user views.</title>
+        <search>
+          <query>|  rest services/data/ui/views
+| dedup title
+| stats count by eai:acl.app
+| addcoltotals count labelfield=rootNode label=total</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="charting.chart">pie</option>
+        <option name="charting.drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </chart>
+    </panel>
+  </row>
+  <row>
+    <panel id="html_header2">
       <html>
         <h1 align="center">Dashboards over Time</h1>
         <p align="center">Adoption of dashboards across the user base over time.</p>
@@ -48,21 +114,10 @@
   </row>
   <row>
     <panel>
-      <table>
-        <search base="dashboardAdoption_baseSearch">
-          <query>| stats count as "Total Views of Dashboards" dc(user) as "Dashboard Users"  dc(view) as "Distinct Dashboards Viewed" dc(app) as "Distinct Apps Viewed"</query>
-        </search>
-        <option name="drilldown">none</option>
-        <option name="refresh.display">progressbar</option>
-      </table>
-    </panel>
-  </row>
-  <row>
-    <panel>
-      <title>Dashboards Adoption</title>
+      <title>Dashboards Adoption Metrics Over Time</title>
       <chart>
         <search base="dashboardAdoption_baseSearch">
-          <query>| timechart count as "Total Count" dc(user) as "Distinct Users" dc(app) as "Distinct Apps" dc(dashboard) as "Distinct Views"</query>
+          <query>| timechart count as "Total Count" dc(user) as "Distinct Users" dc(app) as "Distinct Apps" dc(dashboard) as "Distinct Dashboards"</query>
         </search>
         <option name="charting.axisLabelsX.majorLabelStyle.overflowMode">ellipsisMiddle</option>
         <option name="charting.axisLabelsX.majorLabelStyle.rotation">-45</option>
@@ -102,6 +157,7 @@
   </row>
   <row>
     <panel>
+      <title>Apps and Dashboard Use Over Time</title>
       <input type="link" token="timechart_splitBy" searchWhenChanged="true">
         <label>Split By</label>
         <choice value="dashboard">dashboard</choice>
@@ -110,7 +166,6 @@
         <default>dashboard</default>
       </input>
       <chart>
-        <title>Queries internal web access logs by name over time.</title>
         <search base="dashboardAdoption_baseSearch">
           <query>
 | timechart count by $timechart_splitBy$</query>
@@ -136,7 +191,7 @@
         <option name="charting.chart.sliceCollapsingThreshold">0.01</option>
         <option name="charting.chart.stackMode">stacked</option>
         <option name="charting.chart.style">shiny</option>
-        <option name="charting.drilldown">none</option>
+        <option name="charting.drilldown">all</option>
         <option name="charting.layout.splitSeries">0</option>
         <option name="charting.layout.splitSeries.allowIndependentYRanges">0</option>
         <option name="charting.legend.labelStyle.overflowMode">ellipsisEnd</option>
@@ -151,7 +206,7 @@
     </panel>
   </row>
   <row>
-    <panel>
+    <panel id="html_header3">
       <html encoded="1">&lt;h1 align="center"&gt;Top Dashboards&lt;/h1&gt;
         &lt;p align="center"&gt;By app and user.&lt;/p&gt;</html>
     </panel>
@@ -310,7 +365,7 @@
     </panel>
   </row>
   <row>
-    <panel>
+    <panel id="html_header4">
       <html>
         <h1 align="center">Modifications</h1>
         <p align="center">Create, delete, update, and edit actions on view objects.</p>
