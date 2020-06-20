@@ -2,7 +2,7 @@
   <view name="home" default="true" />
   <collection label="RBAC" >
     <view name="rbac_explorer" />
-    <view name="role_and_user_modifications" />
+    <view name="rbac_modifications" />
     <view name="search_explorer" />
   </collection>
   <collection label="Data Ingestion" >
