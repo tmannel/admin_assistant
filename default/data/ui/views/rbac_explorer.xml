@@ -1,4 +1,4 @@
-<form theme="light">
+<form theme="light" stylesheet="admin_assistant_stylesheet.css">
   <label>RBAC Explorer</label>
   <description>Observe adherence to RBAC model design. Monitor system access.</description>
   <!-- Base search to list indexes -->
@@ -35,12 +35,12 @@
           seconds_since_login &lt; 604800, round(seconds_since_login / 86400, 1) . " days ago",
           seconds_since_login &lt; 31536000, round(seconds_since_login / 604800, 1) . " weeks ago",
           seconds_since_login &gt;=31536000, round(seconds_since_login / 31536000, 1) . " yrs ago") 
-      | eval number_roles=mvcount(roles)
+      | eval num_roles=mvcount(roles)
     </query>
   </search>
   <fieldset submitButton="false" autoRun="true"></fieldset>
   <row>
-    <panel>
+    <panel id="html_header1">
       <html>
         <h1 align="center">Roles and Indexes Overview</h1>
       </html>
@@ -86,7 +86,7 @@
       </table>
     </panel>
     <panel>
-      <title>Authentication Integration</title>
+      <title>Authentication Integrations</title>
       <table>
         <search>
           <query>| rest services/admin/SAML-groups 
@@ -135,7 +135,7 @@
     </panel>
   </row>
   <row>
-    <panel>
+    <panel id="html_header2">
       <html>
         <h1 align="center">Explore Data Access</h1>
       </html>
@@ -143,7 +143,7 @@
   </row>
   <row>
     <panel>
-      <title>Explore Roles</title>
+      <title>Role Details</title>
       <input type="multiselect" token="role_token" searchWhenChanged="true">
         <label>Filter by Role</label>
         <prefix>(</prefix>
@@ -196,19 +196,25 @@
           <latest>now</latest>
         </search>
       </input>
+      <input type="radio" token="capabilities_token" searchWhenChanged="true">
+        <label>Show Capabilities In a Column</label>
+        <choice value="capabilities number_users">yes</choice>
+        <choice value="number_users">no</choice>
+        <default>number_users</default>
+      </input>
       <table>
-        <title>Queries REST /services/authorization/roles for all indexes allowed by a role and its inherited roles.</title>
         <search base="roles_base_search">
-          <query>| search $role_token$ $srchIndexesAllowed_token$
-| eval capabilities=mvjoin(capabilities,"; ")
-| table title srchIndexesAllowed srchIndexesDefault srchFilter imported_roles imported_srchIndexesAllowed imported_srchFilter defaultApp author number_capabilities capabilities number_users
+          <query>| fields title srchIndexesAllowed srchIndexesDefault srchFilter imported_roles imported_srchIndexesAllowed imported_srchFilter defaultApp author number_capabilities number_users capabilities
+| rename imported_* as "imported *"
+| search $role_token$ $srchIndexesAllowed_token$ 
+| eval capabilities=mvjoin(capabilities,"; ") 
+| table title srchIndexesAllowed srchIndexesDefault srchFilter imported* defaultApp author number_capabilities $capabilities_token$ 
 | sort - number_users updated</query>
         </search>
         <option name="count">20</option>
         <option name="dataOverlayMode">none</option>
         <option name="drilldown">none</option>
         <option name="percentagesRow">false</option>
-        <option name="refresh.display">progressbar</option>
         <option name="rowNumbers">true</option>
         <option name="totalsRow">false</option>
         <option name="wrap">true</option>
@@ -269,10 +275,9 @@
       <table>
         <title>Queries REST /services/authentication/users for all roles assigned to a user.</title>
         <search base="users_base_search">
-          <query>
-| eval last_successful_login=last_successful_login." - ".elapsed_since_login | search $userSrch_user_token$ $userSrch_role_token$ 
+          <query>| eval last_successful_login=last_successful_login." - ".elapsed_since_login | search $userSrch_user_token$ $userSrch_role_token$ 
 | rename title as userName, realname as Name 
-| table Name userName email roles number_roles type last_successful_login defaultApp 
+| table Name userName email roles num_roles type last_successful_login defaultApp 
 | sort - lastLogin</query>
         </search>
         <option name="count">20</option>
