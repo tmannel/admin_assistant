@@ -1,5 +1,5 @@
 <form theme="light">
-  <label>Role and User Modifications</label>
+  <label>RBAC Modifications</label>
   <description>View changes made to users and roles.</description>
   <!-- Base search to list indexes -->
   <search id="rbacMods_base_search">
