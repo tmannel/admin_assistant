@@ -4,8 +4,23 @@
   <!-- Base Search -->
   <search id="searchExplorer_baseSearch">
     <query>
-      index=_audit source=audittrail sourcetype=audittrail action=search $search_infoToken$ $search_userToken$ $searchFilter$ $roleToken$
-      | fields _time user roles info savedsearch_name total_run_time search_type search exec_time api_lt api_et event_count drop_count searched_buckets 
+      index=_audit source=audittrail sourcetype=audittrail action=search exec_time!="" $search_infoToken$ $search_userToken$
+      | fields _time user roles info savedsearch_name total_run_time search_type search exec_time api_lt api_et event_count drop_count searched_buckets
+      | eval type=if(savedsearch_name="","ad-hoc","saved")
+      | eval roles=rtrim(ltrim(roles, "'"),"'")
+      | eval search=rtrim(ltrim(search, "'search "),"'")
+      | eval range_sec=api_lt-api_et
+      | eval range=case(range_sec &lt; 3600, round(range_sec / 60) . " min",
+          range_sec &lt; 86400, round(range_sec / 3600, 1) . " hrs",
+          range_sec &lt; 604800, round(range_sec / 86400, 1) . " days",
+          range_sec &lt; 31536000, round(range_sec / 604800, 1) . " wks",
+          range_sec &gt;=31536000, round(range_sec / 31536000, 1) . " yrs")
+      | foreach api_* exec_time
+          [ eval &lt;&lt;FIELD&gt;&gt;=strftime(&lt;&lt;FIELD&gt;&gt;, "%Y-%m-%d %H:%M:%S")] 
+      | rename api_et as "Range (earliest)", api_lt as "Range (latest)"
+      | makemv roles delim=+
+      | eval number_roles=mvcount(roles)
+      | search $roleToken$ $typeFilter$
     </query>
     <earliest>$search_timepicker.earliest$</earliest>
     <latest>$search_timepicker.latest$</latest>
@@ -26,20 +41,18 @@
       <choice value="failed">failed</choice>
       <choice value="pause">pause</choice>
       <choice value="granted">granted</choice>
-      <default>*</default>
       <prefix>(</prefix>
       <suffix>)</suffix>
       <valuePrefix>info=</valuePrefix>
       <delimiter> OR </delimiter>
+      <initialValue>*</initialValue>
     </input>
     <input type="multiselect" token="roleToken">
-      <label>Roles</label>
+      <label>Role Invoked</label>
       <choice value="*">All</choice>
-      <default>*</default>
       <prefix>(</prefix>
       <suffix>)</suffix>
-      <valuePrefix>roles=*</valuePrefix>
-      <valueSuffix>*</valueSuffix>
+      <valuePrefix>roles=</valuePrefix>
       <delimiter> OR </delimiter>
       <fieldForLabel>title</fieldForLabel>
       <fieldForValue>title</fieldForValue>
@@ -50,6 +63,7 @@
         <earliest>-24h@h</earliest>
         <latest>now</latest>
       </search>
+      <initialValue>*</initialValue>
     </input>
     <input type="multiselect" token="search_userToken">
       <label>Users</label>
@@ -67,13 +81,17 @@
         <earliest>-24h@h</earliest>
         <latest>now</latest>
       </search>
-      <default>* NOT user=splunk-system-user</default>
+      <initialValue>* NOT user=splunk-system-user</initialValue>
     </input>
-    <input type="text" token="searchFilter">
-      <label>Filter Search</label>
-      <default>*</default>
-      <prefix>search="</prefix>
-      <suffix>"</suffix>
+    <input type="multiselect" token="typeFilter">
+      <label>Type</label>
+      <choice value="ad-hoc">ad-hoc</choice>
+      <choice value="saved">saved</choice>
+      <default>ad-hoc,saved</default>
+      <prefix>(</prefix>
+      <suffix>)</suffix>
+      <valuePrefix>type=</valuePrefix>
+      <delimiter> OR </delimiter>
     </input>
   </fieldset>
   <row>
@@ -106,11 +124,12 @@
   </row>
   <row>
     <panel>
-      <title>Searches by Info</title>
+      <title>Searches over Time</title>
       <input type="link" token="splitby_token" searchWhenChanged="true">
         <label>Split By</label>
         <choice value="info">info</choice>
         <choice value="user">user</choice>
+        <choice value="type">type</choice>
         <default>info</default>
       </input>
       <chart>
@@ -135,18 +154,15 @@
       <title>Search Details</title>
       <table>
         <search base="searchExplorer_baseSearch">
-          <query>| eval range_sec=api_lt-api_et
-| foreach api_* exec_time _time
-    [ eval &lt;&lt;FIELD&gt;&gt;=strftime(&lt;&lt;FIELD&gt;&gt;, "%Y-%m-%d %H:%M:%S")] 
-| rename api_et as "Range (earliest)", api_lt as "Range (latest)"
-| table _time exec_time user roles info savedsearch_name total_run_time search "Range (earliest)" "Range (latest)" range_sec event_count drop_count searched_buckets 
+          <query>| eval _time=strftime(_time, "%Y-%m-%d %H:%M:%S")
+| table _time exec_time user roles info savedsearch_name type search "Range (earliest)" "Range (latest)" range_sec range event_count drop_count searched_buckets total_run_time
 | sort - _time</query>
         </search>
         <option name="count">10</option>
         <option name="dataOverlayMode">none</option>
-        <option name="drilldown">cell</option>
+        <option name="drilldown">row</option>
         <option name="percentagesRow">false</option>
-        <option name="rowNumbers">true</option>
+        <option name="rowNumbers">false</option>
         <option name="totalsRow">false</option>
         <option name="wrap">true</option>
         <format type="color" field="total_run_time">
@@ -166,7 +182,7 @@
         </format>
         <format type="color" field="searched_buckets">
           <colorPalette type="minMidMax" maxColor="#006D9C" minColor="#FFFFFF"></colorPalette>
-          <scale type="minMidMax" minValue="1"></scale>
+          <scale type="minMidMax" minValue="0"></scale>
         </format>
         <format type="color" field="user">
           <colorPalette type="sharedList"></colorPalette>
@@ -178,6 +194,14 @@
         <format type="number" field="range_sec">
           <option name="precision">0</option>
           <option name="unit">s</option>
+        </format>
+        <format type="color" field="range_sec">
+          <colorPalette type="minMidMax" maxColor="#62B3B2" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="0"></scale>
+        </format>
+        <format type="color" field="type">
+          <colorPalette type="sharedList"></colorPalette>
+          <scale type="sharedCategory"></scale>
         </format>
       </table>
     </panel>
