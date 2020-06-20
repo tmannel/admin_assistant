@@ -1,4 +1,4 @@
-<form theme="light">
+<form theme="light" stylesheet="admin_assistant_stylesheet.css">
   <label>RBAC Modifications</label>
   <description>View changes made to users and roles.</description>
   <!-- Base search to list indexes -->
@@ -47,7 +47,7 @@
     </input>
   </fieldset>
   <row>
-    <panel>
+    <panel id="html_header1">
       <html>
         <h1 align="center">User and Role Modification History</h1>
       </html>
