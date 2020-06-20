@@ -1,5 +1,5 @@
-<dashboard theme="light">
-  <label>Welcome</label>
+<dashboard theme="light" stylesheet="admin_assistant_stylesheet.css">
+  <label>Home</label>
   <description>A landing page for Admin Assistant users.</description>
   <!-- Set some tokens for our Panels -->
   <search id="views_in_this_app_baseSearch">
@@ -14,7 +14,7 @@
     </done>
   </search>
   <row>
-    <panel>
+    <panel id="html_header1">
       <html encoded="1">&lt;h1 align="center"&gt;Welcome to Admin Assistant!&lt;/h1&gt;
         &lt;p align="center"&gt;Explore your data, users, performance, and more!&lt;/p&gt;</html>
     </panel>
@@ -31,7 +31,7 @@
 <p>Splunk provides an immense amount of data on itself. The Admin Assistant app is intended to serve as a central location for key project metrics around security, system adoption, and resource utilization. Use cases are generally centered around the following questions:</p>
 <ul>How are users provided access to data?</ul>
 <ul>Who searches the data and what do they search?</ul>
-<ul>Are searches performant?</ul>
+<ul>Is the system performant?</ul>
 <ul>Is data being ingested as expected?</ul>
         </html>
     </panel>
@@ -76,11 +76,11 @@
     <p>Some Splunk reporting commands, however, are not preceded by a search query and are invoked directly after a <code>|</code> character in the first line. These commands include but are not limited to <code>tstats</code>, <code>mstats</code>, <code>mcatalog</code>, <code>REST</code>, <code>metadata</code>, <code>dbinspect</code>, <code>fieldsummary</code>, and <code>history</code>. The REST API in particular warrants example:</p>
 <pre><code>| rest splunk_server=local services/authentication/users
 | stats count</code></pre>
-        </html>
+</html>
     </panel>
   </row>
   <row>
-    <panel>
+    <panel id="html_header2">
       <html encoded="1">&lt;h1 align="center"&gt;About Admin Assistant&lt;/h1&gt;
         </html>
     </panel>
@@ -94,6 +94,7 @@
           <query>|  rest /services/apps/local/admin_assistant
 | fields label title author version description eai:acl.perms.read eai:acl.perms.write eai:acl.sharing updated
 | eval value="value"
+| rename eai:acl.perms.* as *_permissions
 | transpose column_name=property header_field="value"</query>
           <earliest>-60m@m</earliest>
           <latest>now</latest>
@@ -103,6 +104,7 @@
         <option name="dataOverlayMode">none</option>
         <option name="drilldown">none</option>
         <option name="percentagesRow">false</option>
+        <option name="refresh.display">progressbar</option>
         <option name="rowNumbers">false</option>
         <option name="totalsRow">false</option>
         <option name="wrap">true</option>
@@ -129,6 +131,17 @@
           <sampleRatio>1</sampleRatio>
         </search>
         <option name="drilldown">none</option>
+        <option name="sankey_diagram_app.sankey_diagram.colorMode">categorical</option>
+        <option name="sankey_diagram_app.sankey_diagram.maxColor">#3fc77a</option>
+        <option name="sankey_diagram_app.sankey_diagram.minColor">#d93f3c</option>
+        <option name="sankey_diagram_app.sankey_diagram.numOfBins">6</option>
+        <option name="sankey_diagram_app.sankey_diagram.showBackwards">false</option>
+        <option name="sankey_diagram_app.sankey_diagram.showLabels">true</option>
+        <option name="sankey_diagram_app.sankey_diagram.showLegend">false</option>
+        <option name="sankey_diagram_app.sankey_diagram.showSelf">false</option>
+        <option name="sankey_diagram_app.sankey_diagram.showTooltip">false</option>
+        <option name="sankey_diagram_app.sankey_diagram.styleBackwards">false</option>
+        <option name="sankey_diagram_app.sankey_diagram.useColors">true</option>
       </viz>
     </panel>
   </row>
@@ -149,7 +162,7 @@
         <option name="dataOverlayMode">none</option>
         <option name="drilldown">none</option>
         <option name="percentagesRow">false</option>
-        <option name="rowNumbers">false</option>
+        <option name="rowNumbers">true</option>
         <option name="totalsRow">false</option>
         <option name="wrap">true</option>
         <format type="color" field="label">
