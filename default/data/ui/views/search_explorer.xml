@@ -12,8 +12,7 @@
       | eval range_sec=api_lt-api_et
       | eval range=case(range_sec &lt; 3600, round(range_sec / 60) . " min",
           range_sec &lt; 86400, round(range_sec / 3600, 1) . " hrs",
-          range_sec &lt; 604800, round(range_sec / 86400, 1) . " days",
-          range_sec &lt; 31536000, round(range_sec / 604800, 1) . " wks",
+          range_sec &lt; 31536000, round(range_sec / 86400, 1) . " days",
           range_sec &gt;=31536000, round(range_sec / 31536000, 1) . " yrs")
       | foreach api_* exec_time
           [ eval &lt;&lt;FIELD&gt;&gt;=strftime(&lt;&lt;FIELD&gt;&gt;, "%Y-%m-%d %H:%M:%S")] 
