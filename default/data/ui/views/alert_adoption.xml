@@ -1,8 +1,8 @@
 <form theme="light">
   <label>Alert Adoption</label>
   <description>Explore user of alerts over time.</description>
-  <fieldset submitButton="false" autoRun="true">
-    <input type="time" token="dashboardAdoption_timepicker" searchWhenChanged="true">
+  <fieldset submitButton="true" autoRun="true">
+    <input type="time" token="alerts_timepicker" searchWhenChanged="true">
       <label>Time Range</label>
       <default>
         <earliest>-7d@h</earliest>
@@ -18,12 +18,40 @@
       </html>
     </panel>
   </row>
-    <row>
+  <row>
     <panel>
-      <html>
-        <h1 align="center">Modifications</h1>
-        <p align="center">Create, edit, and delete actions on alert objects.</p>
-      </html>
+      <table>
+        <title>Alerts Fired</title>
+        <search>
+          <query>index=_audit action=alert_fired |rename ss_name AS Alert 
+|stats latest(_time) AS "Last Fired" count AS "Times Fired" sparkline AS "Alerts in the Last 72 Hours" 
+first(sid) AS sid by Alert 
+|convert ctime("Last Fired")</query>
+          <earliest>$alerts_timepicker.earliest$</earliest>
+          <latest>$alerts_timepicker.latest$</latest>
+        </search>
+        <option name="count">10</option>
+        <option name="dataOverlayMode">heatmap</option>
+        <option name="drilldown">cell</option>
+        <option name="link.inspectSearch.visible">0</option>
+        <option name="link.openSearch.visible">0</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="rowNumbers">false</option>
+        <option name="wrap">true</option>
+        <format field="Alerts in the Last 72 Hours" type="sparkline">
+          <option name="type">bar</option>
+          <option name="barColor">green</option>
+          <option name="colorMap">
+            <option name="1:3">navy</option>
+            <option name="3:7">orange</option>
+            <option name="8:">red</option>
+          </option>
+        </format>
+        <fields>["Alert","Last Fired","Times Fired","Alerts in the Last 72 Hours"]</fields>
+        <drilldown target="_blank">
+          <link>search?sid=$row.sid$</link>
+        </drilldown>
+      </table>
     </panel>
   </row>
 </form>
