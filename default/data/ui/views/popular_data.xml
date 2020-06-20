@@ -1,4 +1,4 @@
-<form theme="light">
+<form theme="light" stylesheet="admin_assistant_stylesheet.css">
   <label>Popular Data</label>
   <description>Which data is searched most often? Limited to completed searches only.</description>
   <!-- Base Search -->
@@ -20,6 +20,8 @@
     <earliest>$search_timepicker.earliest$</earliest>
     <latest>$search_timepicker.latest$</latest>
   </search>
+  <!-- Form Inputs -->
+  <!-- Panels Begin -->
   <fieldset submitButton="true" autoRun="true">
     <input type="time" token="search_timepicker">
       <label>Time Range</label>
@@ -28,10 +30,17 @@
         <latest>now</latest>
       </default>
     </input>
+    <input type="radio" token="popularData_splitBy" searchWhenChanged="true">
+      <label>Search Term</label>
+      <choice value="indexes_searched">Index(es) searched</choice>
+      <choice value="sourcetypes_searched">Sourcetype(s) searched</choice>
+      <choice value="macros_searched">Macro(s) searched</choice>
+      <choice value="hosts_searched">Host(s) searched</choice>
+      <default>indexes_searched</default>
+    </input>
     <input type="multiselect" token="roleToken">
       <label>Roles</label>
       <choice value="*">All</choice>
-      <default>*</default>
       <prefix>(</prefix>
       <suffix>)</suffix>
       <valuePrefix>roles=*</valuePrefix>
@@ -46,6 +55,7 @@
         <earliest>-24h@h</earliest>
         <latest>now</latest>
       </search>
+      <initialValue>*</initialValue>
     </input>
     <input type="multiselect" token="search_userToken">
       <label>Users</label>
@@ -63,7 +73,7 @@
         <earliest>-24h@h</earliest>
         <latest>now</latest>
       </search>
-      <default>* NOT user=splunk-system-user</default>
+      <initialValue>* NOT user=splunk-system-user</initialValue>
     </input>
     <input type="text" token="searchFilter">
       <label>Filter Search</label>
@@ -73,7 +83,7 @@
     </input>
   </fieldset>
   <row>
-    <panel>
+    <panel id="html_header1">
       <html encoded="1">&lt;div class="expand-html-margins"&gt;
             &lt;h1 align="center"&gt;Common Search Terms&lt;/h1&gt;
             &lt;p align="center"&gt;Look for common queries like 'index='.&lt;/p&gt;
@@ -83,20 +93,12 @@
   <row>
     <panel>
       <title>Top Search Terms</title>
-      <input type="radio" token="popularData_splitBy" searchWhenChanged="true">
-        <label>Split Searches By</label>
-        <choice value="indexes_searched">Index(es) searched</choice>
-        <choice value="sourcetypes_searched">Sourcetype(s) searched</choice>
-        <choice value="macros_searched">Macro(s) searched</choice>
-        <choice value="hosts_searched">Host(s) searched</choice>
-        <default>indexes_searched</default>
-      </input>
       <table>
         <search base="searchExplorer_baseSearch">
           <query>| stats dc(user) as "Distinct Users" mode(user) as "Top User" mode(roles) as "Top Roles" dc(savedsearch_name) as "Saved Searches" dc(search) as "Distinct Searches" sparkline as trend count by $popularData_splitBy$ 
 | sort - count</query>
         </search>
-        <option name="drilldown">none</option>
+        <option name="drilldown">row</option>
         <option name="rowNumbers">true</option>
         <format type="number" field="count">
           <option name="precision">0</option>
@@ -126,7 +128,6 @@
     <panel>
       <title>Search Term Prevalence Over Time</title>
       <chart>
-        <title>Search query over time</title>
         <search base="searchExplorer_baseSearch">
           <query>| timechart usenull=f count by $popularData_splitBy$</query>
         </search>
@@ -140,7 +141,7 @@
         <option name="charting.chart.stackMode">stacked</option>
         <option name="charting.drilldown">none</option>
         <option name="charting.fieldColors">{"search term not used":D3D3D3}</option>
-        <option name="charting.legend.placement">left</option>
+        <option name="charting.legend.placement">top</option>
         <option name="refresh.display">progressbar</option>
       </chart>
       <chart>
@@ -161,28 +162,36 @@
         <option name="charting.chart.stackMode">stacked100</option>
         <option name="charting.drilldown">none</option>
         <option name="charting.fieldColors">{"search term not used":D3D3D3}</option>
-        <option name="charting.legend.placement">left</option>
+        <option name="charting.legend.placement">none</option>
         <option name="refresh.display">progressbar</option>
       </chart>
     </panel>
   </row>
   <row>
-    <panel>
-      <html encoded="1">&lt;h1 align="center"&gt;Data Popularity by Role&lt;/h1&gt;
+    <panel id="html_header2">
+      <html encoded="1">&lt;h1 align="center"&gt;Data Popularity by User and Role&lt;/h1&gt;
         &lt;p align="center"&gt;Monitor adoption and compliance with RBAC model.&lt;/p&gt;</html>
     </panel>
   </row>
   <row>
     <panel>
-      <title>Top Roles</title>
+      <title>Top Query Users</title>
+      <input type="link" token="popularity_splitBy" searchWhenChanged="true">
+        <label>Split By</label>
+        <choice value="roles">roles</choice>
+        <choice value="user">user</choice>
+        <default>roles</default>
+      </input>
       <table>
+        <title>By Roles</title>
         <search base="searchExplorer_baseSearch">
-          <query>| stats dc(user) as "Distinct Users" mode(user) as "Top User" dc(savedsearch_name) as "Distinct Saved Searches" dc(search) as "Distinct Searches" sparkline as trend count by roles 
+          <query>| stats dc(user) as "Distinct Users" mode(user) as "Top User" dc(savedsearch_name) as "Distinct Saved Searches" dc(search) as "Distinct Searches" sparkline as trend count by $popularity_splitBy$
 | sort - count</query>
         </search>
-        <option name="count">5</option>
+        <option name="count">10</option>
         <option name="drilldown">none</option>
         <option name="refresh.display">progressbar</option>
+        <option name="rowNumbers">true</option>
         <format type="color" field="count">
           <colorPalette type="minMidMax" maxColor="#006D9C" minColor="#FFFFFF"></colorPalette>
           <scale type="minMidMax" minValue="1"></scale>
@@ -196,16 +205,46 @@
         <format type="number" field="Distinct Saved Searches">
           <option name="precision">0</option>
         </format>
+        <format type="color" field="roles">
+          <colorPalette type="sharedList"></colorPalette>
+          <scale type="sharedCategory"></scale>
+        </format>
+        <format type="color" field="Distinct Saved Searches">
+          <colorPalette type="minMidMax" maxColor="#5A4575" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="0"></scale>
+        </format>
+        <format type="color" field="Distinct Searches">
+          <colorPalette type="minMidMax" maxColor="#5A4575" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="0"></scale>
+        </format>
+        <format type="color" field="Distinct Users">
+          <colorPalette type="minMidMax" maxColor="#62B3B2" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="1"></scale>
+        </format>
       </table>
     </panel>
     <panel>
-      <title>Popular Search Terms by $popularData_splitBy$</title>
+      <title>Popular Search Terms Values</title>
       <viz type="sankey_diagram_app.sankey_diagram">
+        <title>Sankey limited to top 30 in either category.</title>
         <search base="searchExplorer_baseSearch">
-          <query>| stats count by $popularData_splitBy$ roles</query>
+          <query>| stats count by $popularData_splitBy$ $popularity_splitBy$
+| sort - count
+| head 30</query>
         </search>
         <option name="drilldown">none</option>
         <option name="refresh.display">progressbar</option>
+        <option name="sankey_diagram_app.sankey_diagram.colorMode">categorical</option>
+        <option name="sankey_diagram_app.sankey_diagram.maxColor">#3fc77a</option>
+        <option name="sankey_diagram_app.sankey_diagram.minColor">#d93f3c</option>
+        <option name="sankey_diagram_app.sankey_diagram.numOfBins">6</option>
+        <option name="sankey_diagram_app.sankey_diagram.showBackwards">false</option>
+        <option name="sankey_diagram_app.sankey_diagram.showLabels">true</option>
+        <option name="sankey_diagram_app.sankey_diagram.showLegend">true</option>
+        <option name="sankey_diagram_app.sankey_diagram.showSelf">false</option>
+        <option name="sankey_diagram_app.sankey_diagram.showTooltip">true</option>
+        <option name="sankey_diagram_app.sankey_diagram.styleBackwards">false</option>
+        <option name="sankey_diagram_app.sankey_diagram.useColors">true</option>
       </viz>
     </panel>
   </row>
