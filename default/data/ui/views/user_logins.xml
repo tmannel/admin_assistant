@@ -1,11 +1,16 @@
 <form theme="light">
   <label>User Logins</label>
-  <description>Analyze user logins and authentication settings.</description>
+  <description>Analyze user logins and authentication settings. Note - 'Roles' is a joined from the Splunk REST API for user convenience, not extracted from the _audit log itself.</description>
   <!-- Base Search -->
   <search id="userLogins_baseSearch">
     <query>
       index=_audit sourcetype=audittrail action="login attempt" $userToken$
-      | fields _time user host info clientip useragent session src
+      | fields _time user host info clientip useragent session src reason
+      | join user 
+          [ | rest services/authentication/users
+          | rename title as user
+          | fields user roles]
+          | search $roleToken$
     </query>
     <earliest>$login_timerange_token.earliest$</earliest>
     <latest>$login_timerange_token.latest$</latest>
@@ -17,6 +22,24 @@
         <earliest>@w0</earliest>
         <latest>now</latest>
       </default>
+    </input>
+    <input type="multiselect" token="roleToken">
+      <label>Filter by Roles</label>
+      <choice value="*">All</choice>
+      <default>*</default>
+      <prefix>(</prefix>
+      <suffix>)</suffix>
+      <valuePrefix>roles=</valuePrefix>
+      <delimiter> OR </delimiter>
+      <fieldForLabel>title</fieldForLabel>
+      <fieldForValue>title</fieldForValue>
+      <search>
+        <query>| rest services/authorization/roles
+| fields title
+| dedup title</query>
+        <earliest>-24h@h</earliest>
+        <latest>now</latest>
+      </search>
     </input>
     <input type="multiselect" token="userToken">
       <label>Filter by User</label>
@@ -40,145 +63,88 @@
   <row>
     <panel>
       <html>
-        <h1 align="center">User Metrics</h1>
+        <h1 align="center">Logins Overview</h1>
       </html>
     </panel>
   </row>
   <row>
     <panel>
-      <single>
+      <title>Logins by Info</title>
+      <table>
         <search base="userLogins_baseSearch">
-          <query>
-            | stats dc(user)
-          </query>
+          <query>| stats  dc(user) as "Distinct Users" count by info
+| sort - count
+| addcoltotals count labelfield="Distinct Users" label=total</query>
         </search>
-        <option name="colorBy">trend</option>
-        <option name="colorMode">none</option>
         <option name="drilldown">none</option>
-        <option name="numberPrecision">0</option>
-        <option name="rangeColors">["0x53a051","0x53a051"]</option>
-        <option name="rangeValues">[5]</option>
         <option name="refresh.display">progressbar</option>
-        <option name="showSparkline">1</option>
-        <option name="showTrendIndicator">1</option>
-        <option name="trellis.enabled">0</option>
-        <option name="trellis.scales.shared">1</option>
-        <option name="trellis.size">medium</option>
-        <option name="trendColorInterpretation">standard</option>
-        <option name="trendDisplayMode">percent</option>
-        <option name="trendInterval">-24h</option>
-        <option name="underLabel">Total Users</option>
-        <option name="unitPosition">after</option>
-        <option name="useColors">1</option>
-        <option name="useThousandSeparators">1</option>
-      </single>
+        <format type="color" field="info">
+          <colorPalette type="map">{"succeeded":#53A051,"failed":#DC4E41,"total":#294E70}</colorPalette>
+        </format>
+        <format type="color" field="count">
+          <colorPalette type="minMidMax" maxColor="#294E70" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minType="percentile" minValue="99.9999"></scale>
+        </format>
+        <format type="color" field="Distinct Users">
+          <colorPalette type="map">{"total":#294E70}</colorPalette>
+        </format>
+      </table>
     </panel>
     <panel>
-      <single>
+      <title>Successful Logins</title>
+      <table>
         <search base="userLogins_baseSearch">
-          <query>
-            | search info="succeeded"
-            | bin _time span=1d
-            | stats dc(user) as "Daily Users" by _time
-            | stats avg("Daily Users") as "Average Daily Users"
-          </query>
+          <query>| search info="succeeded"
+| bin _time span=1d 
+| stats dc(user) as daily_users count as daily_logins by _time 
+| stats max(daily_users) as "Max Daily Users" avg(daily_users) as "Average Daily Users" median(daily_users) as "Median Daily Users" max(daily_logins) as "Max Daily Logins" avg(daily_logins) as "Average Daily Logins" median(daily_logins) as "Median Daily Logins"
+| transpose
+| rename column as "Login Metric", "row 1" as "Value"</query>
         </search>
-        <option name="colorBy">value</option>
-        <option name="colorMode">none</option>
         <option name="drilldown">none</option>
-        <option name="numberPrecision">0</option>
-        <option name="rangeColors">["0x53a051","0x53a051"]</option>
-        <option name="rangeValues">[0]</option>
         <option name="refresh.display">progressbar</option>
-        <option name="showSparkline">1</option>
-        <option name="showTrendIndicator">1</option>
-        <option name="trellis.enabled">0</option>
-        <option name="trellis.scales.shared">1</option>
-        <option name="trellis.size">medium</option>
-        <option name="trendColorInterpretation">standard</option>
-        <option name="trendDisplayMode">absolute</option>
-        <option name="underLabel">Avg. Distinct Users per Day</option>
-        <option name="unitPosition">after</option>
-        <option name="useColors">1</option>
-        <option name="useThousandSeparators">1</option>
-      </single>
+        <format type="number" field="Value">
+          <option name="precision">0</option>
+        </format>
+      </table>
     </panel>
     <panel>
-      <single>
-        <search>
-          <query>| rest splunk_server=local /services/authorization/roles 
-| stats count</query>
-          <earliest>-60m@m</earliest>
-          <latest>now</latest>
-          <sampleRatio>1</sampleRatio>
+      <title>Failed Logins</title>
+      <table>
+        <search base="userLogins_baseSearch">
+          <query>| search info="failed"
+| bin _time span=1d 
+| stats dc(user) as daily_users count as daily_logins by _time 
+| stats max(daily_users) as "Max Daily Users" avg(daily_users) as "Average Daily Users" median(daily_users) as "Median Daily Users" max(daily_logins) as "Max Daily Logins" avg(daily_logins) as "Average Daily Logins" median(daily_logins) as "Median Daily Logins"
+| transpose
+| rename column as "Login Metric", "row 1" as "Value"</query>
         </search>
-        <option name="colorBy">value</option>
-        <option name="colorMode">none</option>
         <option name="drilldown">none</option>
-        <option name="numberPrecision">0</option>
-        <option name="rangeColors">["0x006d9c","0x006d9c"]</option>
-        <option name="rangeValues">[0]</option>
-        <option name="showSparkline">1</option>
-        <option name="showTrendIndicator">1</option>
-        <option name="trellis.enabled">0</option>
-        <option name="trellis.scales.shared">1</option>
-        <option name="trellis.size">medium</option>
-        <option name="trendColorInterpretation">standard</option>
-        <option name="trendDisplayMode">absolute</option>
-        <option name="underLabel">Total Roles</option>
-        <option name="unitPosition">after</option>
-        <option name="useColors">1</option>
-        <option name="useThousandSeparators">1</option>
-      </single>
-    </panel>
-    <panel>
-      <single>
-        <search>
-          <query>| rest splunk_server=local /services/authorization/roles 
-| eval type=if(match(title,"^(?:admin|can_delete|power|splunk-system-role|user|ess_admin|ess_analyst|ess_user)$$"),"default","custom") 
-| where (type == "custom") 
-| stats count</query>
-          <earliest>0</earliest>
-          <sampleRatio>1</sampleRatio>
-        </search>
-        <option name="colorBy">value</option>
-        <option name="colorMode">none</option>
-        <option name="drilldown">none</option>
-        <option name="numberPrecision">0</option>
-        <option name="rangeColors">["0x006d9c","0x006d9c"]</option>
-        <option name="rangeValues">[0]</option>
-        <option name="showSparkline">1</option>
-        <option name="showTrendIndicator">1</option>
-        <option name="trellis.enabled">0</option>
-        <option name="trellis.scales.shared">1</option>
-        <option name="trellis.size">medium</option>
-        <option name="trendColorInterpretation">standard</option>
-        <option name="trendDisplayMode">absolute</option>
-        <option name="underLabel">Custom Roles</option>
-        <option name="unitPosition">after</option>
-        <option name="useColors">1</option>
-        <option name="useThousandSeparators">1</option>
-      </single>
+        <format type="number" field="Value">
+          <option name="precision">0</option>
+        </format>
+      </table>
     </panel>
   </row>
   <row>
     <panel>
       <html>
-        <h1 align="center">Login Activity</h1>
+        <h1 align="center">Logins Over Time</h1>
       </html>
     </panel>
   </row>
   <row>
     <panel>
-      <title>Logins and Distinct Users</title>
       <chart>
+        <title>Successful</title>
         <search base="userLogins_baseSearch">
-          <query>
-          | timechart dc(user) as "Distinct Users" count by info
-          </query>
+          <query>| search info=succeeded
+| timechart dc(user) as "Distinct Users" count</query>
         </search>
         <option name="charting.axisLabelsX.majorLabelStyle.overflowMode">ellipsisNone</option>
         <option name="charting.axisLabelsX.majorLabelStyle.rotation">0</option>
+        <option name="charting.axisLabelsY.majorUnit">5</option>
+        <option name="charting.axisLabelsY2.majorUnit">1</option>
         <option name="charting.axisTitleX.visibility">collapsed</option>
         <option name="charting.axisTitleY.text">Logins</option>
         <option name="charting.axisTitleY.visibility">collapsed</option>
@@ -196,8 +162,52 @@
         <option name="charting.chart.bubbleMinimumSize">10</option>
         <option name="charting.chart.bubbleSizeBy">area</option>
         <option name="charting.chart.nullValueMode">gaps</option>
-        <option name="charting.chart.overlayFields">"Distinct Users: failed","Distinct Users: succeeded"</option>
-        <option name="charting.chart.showDataLabels">none</option>
+        <option name="charting.chart.overlayFields">"Distinct Users"</option>
+        <option name="charting.chart.showDataLabels">all</option>
+        <option name="charting.chart.sliceCollapsingThreshold">0.01</option>
+        <option name="charting.chart.stackMode">default</option>
+        <option name="charting.chart.style">shiny</option>
+        <option name="charting.drilldown">none</option>
+        <option name="charting.layout.splitSeries">0</option>
+        <option name="charting.layout.splitSeries.allowIndependentYRanges">0</option>
+        <option name="charting.legend.labelStyle.overflowMode">ellipsisMiddle</option>
+        <option name="charting.legend.mode">standard</option>
+        <option name="charting.legend.placement">left</option>
+        <option name="charting.lineWidth">2</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="trellis.enabled">0</option>
+        <option name="trellis.scales.shared">1</option>
+        <option name="trellis.size">medium</option>
+      </chart>
+      <chart>
+        <title>Failed</title>
+        <search base="userLogins_baseSearch">
+          <query>| search info=failed
+| timechart dc(user) as "Distinct Users" count</query>
+        </search>
+        <option name="charting.axisLabelsX.majorLabelStyle.overflowMode">ellipsisNone</option>
+        <option name="charting.axisLabelsX.majorLabelStyle.rotation">0</option>
+        <option name="charting.axisLabelsY.majorUnit">5</option>
+        <option name="charting.axisLabelsY2.majorUnit">1</option>
+        <option name="charting.axisTitleX.visibility">collapsed</option>
+        <option name="charting.axisTitleY.text">Logins</option>
+        <option name="charting.axisTitleY.visibility">collapsed</option>
+        <option name="charting.axisTitleY2.text">Distinct Users</option>
+        <option name="charting.axisTitleY2.visibility">visible</option>
+        <option name="charting.axisX.abbreviation">none</option>
+        <option name="charting.axisX.scale">linear</option>
+        <option name="charting.axisY.abbreviation">auto</option>
+        <option name="charting.axisY.scale">linear</option>
+        <option name="charting.axisY2.abbreviation">none</option>
+        <option name="charting.axisY2.enabled">1</option>
+        <option name="charting.axisY2.scale">inherit</option>
+        <option name="charting.chart">column</option>
+        <option name="charting.chart.bubbleMaximumSize">50</option>
+        <option name="charting.chart.bubbleMinimumSize">10</option>
+        <option name="charting.chart.bubbleSizeBy">area</option>
+        <option name="charting.chart.nullValueMode">gaps</option>
+        <option name="charting.chart.overlayFields">"Distinct Users"</option>
+        <option name="charting.chart.showDataLabels">all</option>
         <option name="charting.chart.sliceCollapsingThreshold">0.01</option>
         <option name="charting.chart.stackMode">default</option>
         <option name="charting.chart.style">shiny</option>
@@ -218,7 +228,7 @@
   <row>
     <panel>
       <html>
-        <h1 align="center">Successful Logins</h1>
+        <h1 align="center">Successful Login Details</h1>
       </html>
     </panel>
   </row>
@@ -227,48 +237,67 @@
       <title>Successful Logins by User</title>
       <table>
         <search base="userLogins_baseSearch">
-          <query>| search info=succeeded 
-| stats sparkline count values(host) as "hosts" values(clientip) as "client ips" by user
+          <query>| search info=succeeded
+| stats values(roles) as "roles" values(host) as "hosts" values(clientip) as "client ips" sparkline as trend count by user
 | sort - count</query>
         </search>
         <option name="drilldown">none</option>
         <option name="refresh.display">progressbar</option>
         <option name="rowNumbers">true</option>
         <format type="color" field="count">
-          <colorPalette type="minMidMax" maxColor="#DC4E41" minColor="#FFFFFF"></colorPalette>
+          <colorPalette type="minMidMax" maxColor="#53A051" minColor="#FFFFFF"></colorPalette>
           <scale type="minMidMax" minValue="1"></scale>
         </format>
         <format type="color" field="user">
           <colorPalette type="sharedList"></colorPalette>
           <scale type="sharedCategory"></scale>
         </format>
+        <format field="trend" type="sparkline">
+          <option name="type">bar</option>
+        </format>
       </table>
     </panel>
     <panel>
-      <title>Logins by Useragent</title>
-      <chart>
+      <title>Successful Logins by Roles</title>
+      <table>
         <search base="userLogins_baseSearch">
-          <query>| stats count by useragent</query>
+          <query>| search info=succeeded
+| stats  values(host) as hosts dc(user) as "Distinct Users" mode(user) as "Top User" sparkline as trend count by roles
+| sort - count</query>
         </search>
-        <option name="charting.chart">pie</option>
-        <option name="charting.drilldown">none</option>
-      </chart>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="rowNumbers">true</option>
+        <format type="color" field="count">
+          <colorPalette type="minMidMax" maxColor="#53A051" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="1"></scale>
+        </format>
+        <format type="color" field="user">
+          <colorPalette type="sharedList"></colorPalette>
+          <scale type="sharedCategory"></scale>
+        </format>
+        <format field="trend" type="sparkline">
+          <option name="type">bar</option>
+        </format>
+      </table>
     </panel>
   </row>
   <row>
     <panel>
-      <title>Successful Login Details</title>
+      <title>Successful Logins Table</title>
       <table>
         <search base="userLogins_baseSearch">
           <query>| search info=succeeded 
-| table _time user host clientip useragent info
+| eval _time=strftime(_time,"%Y-%m-%d %H:%M:%S") 
+| table _time user roles host clientip useragent info 
 | sort - _time</query>
         </search>
-        <option name="count">5</option>
+        <option name="count">10</option>
         <option name="drilldown">none</option>
         <option name="refresh.display">progressbar</option>
+        <option name="rowNumbers">true</option>
         <format type="color" field="info">
-          <colorPalette type="map">{"failed":#DC4E41}</colorPalette>
+          <colorPalette type="map">{"succeeded":#53A051}</colorPalette>
         </format>
         <format type="color" field="user">
           <colorPalette type="sharedList"></colorPalette>
@@ -280,7 +309,7 @@
   <row>
     <panel>
       <html>
-        <h1 align="center">Failed Logins</h1>
+        <h1 align="center">Failed Login Details</h1>
       </html>
     </panel>
   </row>
@@ -290,7 +319,7 @@
       <table>
         <search base="userLogins_baseSearch">
           <query>| search info=failed 
-| stats sparkline count values(host) as "hosts" values(src) as "sources" by user
+| stats values(roles) as "roles" values(host) as "hosts" values(src) as "sources" sparkline as trend count by user
 | sort - count</query>
         </search>
         <option name="drilldown">none</option>
@@ -304,19 +333,50 @@
           <colorPalette type="sharedList"></colorPalette>
           <scale type="sharedCategory"></scale>
         </format>
+        <format field="trend" type="sparkline">
+          <option name="type">bar</option>
+        </format>
       </table>
     </panel>
     <panel>
-      <title>Failed Login Details</title>
+      <title>Failed Logins by Roles</title>
+      <table>
+        <search base="userLogins_baseSearch">
+          <query>| search info=failed
+| stats values(host) dc(user) as "Distinct Users" mode(user) as "Top User" sparkline as trend count by roles
+| sort - count</query>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="rowNumbers">true</option>
+        <format type="color" field="count">
+          <colorPalette type="minMidMax" maxColor="#DC4E41" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="1"></scale>
+        </format>
+        <format type="color" field="user">
+          <colorPalette type="sharedList"></colorPalette>
+          <scale type="sharedCategory"></scale>
+        </format>
+        <format field="trend" type="sparkline">
+          <option name="type">bar</option>
+        </format>
+      </table>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <title>Failed Logins Table</title>
       <table>
         <search base="userLogins_baseSearch">
           <query>| search info=failed 
-| table _time user host src info
+| eval _time=strftime(_time,"%Y-%m-%d %H:%M:%S") 
+| table _time user roles host src info 
 | sort - _time</query>
         </search>
-        <option name="count">5</option>
+        <option name="count">10</option>
         <option name="drilldown">none</option>
         <option name="refresh.display">progressbar</option>
+        <option name="rowNumbers">true</option>
         <format type="color" field="info">
           <colorPalette type="map">{"failed":#DC4E41}</colorPalette>
         </format>
