@@ -1,6 +1,7 @@
-<form theme="light">
+<form theme="light" stylesheet="admin_assistant_stylesheet.css">
   <label>Bucket Explorer</label>
   <description>== HOW TO USE ==  Filter the entire dashboard using the inputs at the top with the submit button. Individual dashboards have additional inputs.</description>
+  <!-- Base Search -->
   <search id="bucketRolls_baseSearch">
     <query>
       index=_internal sourcetype=splunkd source="*splunkd.log" component=HotBucketRoller
@@ -8,9 +9,11 @@
       | rename idx as index
       | search $bucket_index_token$
     </query>
-    <earliest>$bucket_timepicker.earliest$</earliest>
-    <latest>$bucket_timepicker.latest$</latest>
+    <earliest>$bucketRoll_timepicker.earliest$</earliest>
+    <latest>$bucketRoll_timepicker.latest$</latest>
   </search>
+  <!-- Form Inputs -->
+  <!-- Panels Begin -->
   <fieldset submitButton="true" autoRun="true">
     <input type="multiselect" token="bucket_index_token" searchWhenChanged="false">
       <label>Filter by Index</label>
@@ -33,7 +36,7 @@
     </input>
   </fieldset>
   <row>
-    <panel>
+    <panel id="html_header1">
       <html encoded="1">&lt;h1 align="center" style="{background-color: lightgray !important;}"&gt;Explore Buckets&lt;/h1&gt;</html>
     </panel>
   </row>
@@ -59,24 +62,32 @@
         <delimiter> OR </delimiter>
         <default>hot,warm,cold,frozen</default>
       </input>
+      <input type="checkbox" token="bucketStatistics_splitBy" searchWhenChanged="true">
+        <label>Split By</label>
+        <choice value="index">index</choice>
+        <choice value="splunk_server">splunk_server (indexer)</choice>
+        <choice value="state">bucket state</choice>
+        <default>index,splunk_server,state</default>
+        <delimiter> </delimiter>
+      </input>
       <table>
         <title>dbinspect query returning bucket metrics by bucket state and index.</title>
         <search>
           <query>| dbinspect index=* 
-| fields bucketId index state eventCount startEpoch endEpoch hostCount rawSize sizeOnDiskMB sourceCount sourceTypeCount splunk_server
+| fields bucketId index state eventCount startEpoch endEpoch hostCount rawSize sizeOnDiskMB sourceCount sourceTypeCount splunk_server 
+| search $bucket_index_token$ $bucket_state_token$ 
 | eval rawMB=((rawSize/1024)/1024) 
 | eval rawGB=rawMB/1024 
 | eval sizeOnDiskGB=sizeOnDiskMB/1024 
-| eval sort_field=case(state="hot",1,state="warm",2,state="cold",3) 
-| stats dc(bucketId) as "Number of Buckets" sum(eventCount) as "Total Events" min(startEpoch) as earliestData max(endEpoch) as latestData avg(sourceCount) as "Avg Sources per Bucket" avg(sourceTypeCount) as "Avg Sourcetypes per Bucket" sum(sizeOnDiskMB) as "Compressed MB on Disk" sum(sizeOnDiskGB) as "Compressed GB on Disk" sum(rawMB) as "Raw MB" sum(rawGB) as "Raw GB" by index, state, sort_field, splunk_server 
+| stats dc(bucketId) as "Number of Buckets" sum(eventCount) as "Total Events" min(startEpoch) as earliestData max(endEpoch) as latestData avg(sourceCount) as "Avg Sources per Bucket" avg(sourceTypeCount) as "Avg Sourcetypes per Bucket" sum(sizeOnDiskMB) as "MB on Disk" sum(sizeOnDiskGB) as "GB on Disk" sum(rawMB) as "Raw MB" sum(rawGB) as "Raw GB" by $bucketStatistics_splitBy$ 
 | eval spanHours=(((latestData-earliestData)/60)/60) 
 | eval spanDays=spanHours/24 
-| eval "Earliest Data"=strftime(earliestData,"%m/%d/%y %H:%M") 
-| eval "Latest Data"=strftime(latestData,"%m/%d/%y %H:%M") 
-| search $bucket_index_token$ 
-| search $bucket_state_token$ 
+| foreach *Data
+    [ convert ctime(&lt;&lt;FIELD&gt;&gt;) timeformat="%Y-%m-%d %H:%M:%S"]
+| rename *Data as "* Data"
+| eval sort_field=case(state="hot",1,state="warm",2,state="cold",3) 
 | sort index, sort_field, -"Compressed MB on Disk" 
-| table index splunk_server state "Earliest Data" "Latest Data" spanHours spanDays "Number of Buckets" "Total Events" "Avg Sources per Bucket" "Avg Sourcetypes per Bucket" "Compressed MB on Disk" "Compressed GB on Disk" "Raw MB" "Raw GB"</query>
+| table $bucketStatistics_splitBy$ *Data span* "Number of Buckets" "Total Events" *Bucket *Disk Raw*</query>
           <earliest>$bucketModified_token.earliest$</earliest>
           <latest>$bucketModified_token.latest$</latest>
           <sampleRatio>1</sampleRatio>
@@ -86,7 +97,7 @@
         <option name="drilldown">none</option>
         <option name="percentagesRow">false</option>
         <option name="refresh.display">progressbar</option>
-        <option name="rowNumbers">false</option>
+        <option name="rowNumbers">true</option>
         <option name="totalsRow">false</option>
         <option name="wrap">true</option>
         <format type="number" field="avg(sourceCount)">
@@ -231,12 +242,23 @@
           <colorPalette type="sharedList"></colorPalette>
           <scale type="sharedCategory"></scale>
         </format>
+        <format type="number" field="GB on Disk">
+          <option name="precision">1</option>
+          <option name="unit">GB</option>
+        </format>
+        <format type="number" field="MB on Disk">
+          <option name="precision">0</option>
+          <option name="unit">MB</option>
+        </format>
+        <format type="color" field="GB on Disk">
+          <colorPalette type="minMidMax" maxColor="#708794" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="0"></scale>
+        </format>
+        <format type="color" field="MB on Disk">
+          <colorPalette type="minMidMax" maxColor="#708794" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="0"></scale>
+        </format>
       </table>
-    </panel>
-  </row>
-  <row>
-    <panel>
-      <html encoded="1">&lt;h1 align="center" style="{background-color: lightgray !important;}"&gt;Bucket Rolls&lt;/h1&gt;</html>
     </panel>
   </row>
   <row>
@@ -335,22 +357,21 @@
     </panel>
   </row>
   <row>
-    <panel>
+    <panel id="html_header2">
       <html encoded="1">&lt;h1 align="center" style="{background-color: lightgray !important;}"&gt;View Index Configuration&lt;/h1&gt;</html>
     </panel>
   </row>
   <row>
     <panel>
       <table>
-        <title>REST API query returning configuration settings for each index as defined in indexes.conf files.</title>
         <search>
           <query>| rest /services/data/indexes 
 | eval frzHours=frozenTimePeriodInSecs/3600 
 | eval frzDays=frzHours/24 
 | eval frzYears=frzDays/365 
 | eval maxHotSpanDays=maxHotSpanSecs/86400 
-| rename title as index
-| table eai:acl.app index datatype totalEventCount minTime maxTime splunk_server repFactor maxMemMB frozenTimePeriodInSecs frzDays frzYears maxHotSpanDays currentDBSizeMB maxTotalDataSizeMB maxHotBuckets maxWarmDBCount maxDataSize homePath.maxDataSizeMB coldPath.maxDataSizeMB 
+| rename title as index, eai:acl.app as app
+| table app index datatype totalEventCount minTime maxTime splunk_server repFactor maxMemMB frozenTimePeriodInSecs frz* maxHotSpanDays currentDBSizeMB maxTotalDataSizeMB maxHotBuckets maxWarmDBCount maxDataSize homePath.maxDataSizeMB coldPath.maxDataSizeMB 
 | search $bucket_index_token$
 | sort - maxTime</query>
           <earliest>-24h@h</earliest>
