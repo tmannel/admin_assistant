@@ -1,9 +1,46 @@
-<form theme="light">
+<form theme="light" stylesheet="admin_assistant_stylesheet.css">
   <label>RBAC Explorer</label>
   <description>Observe adherence to RBAC model design. Monitor system access.</description>
+  <!-- Base search to list indexes -->
+  <search id="indexes_base_search">
+    <query>
+      | rest services/data/indexes
+      | dedup title
+    </query>
+  </search>
+  <!-- Base search to list roles -->
+  <search id="roles_base_search">
+    <query>
+      | rest /services/authorization/roles 
+      | dedup title 
+      | eval number_capabilities=mvcount(capabilities)
+      | eval capabilities_configured=if(number_capabilities &gt; 0, "y", "n")
+      | eval type=if(match(title,"^(?:admin|can_delete|power|splunk-system-role|user|ess_admin|ess_analyst|ess_user)$$"),"default","custom")
+      | join type=left title 
+          [| rest /services/authentication/users 
+          | mvexpand roles 
+          | stats dc(title) as number_users by roles 
+          | rename roles as title] 
+    </query>
+  </search>
+  <!-- Base search to list users -->
+  <search id="users_base_search">
+    <query>
+      | rest /services/authentication/users
+      | dedup title 
+      | eval seconds_since_login=now()-last_successful_login
+      | eval last_successful_login=strftime(last_successful_login,"%Y-%m-%d %H:%M") 
+      | eval elapsed_since_login=case(seconds_since_login &lt; 3600, round(seconds_since_login / 60) . " min ago",
+          seconds_since_login &lt; 86400, round(seconds_since_login / 3600, 1) . " hours ago",
+          seconds_since_login &lt; 604800, round(seconds_since_login / 86400, 1) . " days ago",
+          seconds_since_login &lt; 31536000, round(seconds_since_login / 604800, 1) . " weeks ago",
+          seconds_since_login &gt;=31536000, round(seconds_since_login / 31536000, 1) . " yrs ago") 
+      | eval num_roles=mvcount(roles)
+    </query>
+  </search>
   <fieldset submitButton="false" autoRun="true"></fieldset>
   <row>
-    <panel>
+    <panel id="html_header1">
       <html>
         <h1 align="center">Roles and Indexes Overview</h1>
       </html>
@@ -11,139 +48,94 @@
   </row>
   <row>
     <panel>
-      <single>
-        <search>
-          <query>| rest services/data/indexes
-| search title!="_*"
-| stats count</query>
-          <earliest>-60m@m</earliest>
-          <latest>now</latest>
-          <sampleRatio>1</sampleRatio>
+      <title>Number of Roles</title>
+      <table>
+        <search base="roles_base_search">
+          <query>| stats dc(title) as number_roles by type
+| addcoltotals number_roles labelfield=type label=total</query>
         </search>
-        <option name="colorBy">value</option>
-        <option name="colorMode">none</option>
         <option name="drilldown">none</option>
-        <option name="numberPrecision">0</option>
-        <option name="rangeColors">["0x555","0x555"]</option>
-        <option name="rangeValues">[0]</option>
-        <option name="showSparkline">1</option>
-        <option name="showTrendIndicator">1</option>
-        <option name="trellis.enabled">0</option>
-        <option name="trellis.scales.shared">1</option>
-        <option name="trellis.size">medium</option>
-        <option name="trendColorInterpretation">standard</option>
-        <option name="trendDisplayMode">absolute</option>
-        <option name="underLabel">Non-internal Indexes</option>
-        <option name="unitPosition">after</option>
-        <option name="useColors">1</option>
-        <option name="useThousandSeparators">1</option>
-      </single>
+        <format type="color" field="type">
+          <colorPalette type="map">{"total":#294E70}</colorPalette>
+        </format>
+        <format type="color" field="number_roles">
+          <colorPalette type="minMidMax" maxColor="#294E70" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minType="percentile" minValue="99.999999"></scale>
+        </format>
+      </table>
     </panel>
     <panel>
-      <single>
-        <search>
-          <query>| rest splunk_server=local /services/authorization/roles 
-| stats count</query>
-          <earliest>-60m@m</earliest>
-          <latest>now</latest>
-          <sampleRatio>1</sampleRatio>
+      <title>Number of Users</title>
+      <table>
+        <search base="users_base_search">
+          <query>| eval is_admin=if(roles="admin", "y", "n")
+| stats count by is_admin type
+| addcoltotals count labelfield=type label=total</query>
         </search>
-        <option name="colorBy">value</option>
-        <option name="colorMode">none</option>
         <option name="drilldown">none</option>
-        <option name="numberPrecision">0</option>
-        <option name="rangeColors">["0x006d9c","0x006d9c"]</option>
-        <option name="rangeValues">[0]</option>
-        <option name="showSparkline">1</option>
-        <option name="showTrendIndicator">1</option>
-        <option name="trellis.enabled">0</option>
-        <option name="trellis.scales.shared">1</option>
-        <option name="trellis.size">medium</option>
-        <option name="trendColorInterpretation">standard</option>
-        <option name="trendDisplayMode">absolute</option>
-        <option name="underLabel">Total Roles</option>
-        <option name="unitPosition">after</option>
-        <option name="useColors">1</option>
-        <option name="useThousandSeparators">1</option>
-      </single>
+        <format type="color" field="is_admin">
+          <colorPalette type="map">{"total":#708794}</colorPalette>
+        </format>
+        <format type="color" field="count">
+          <colorPalette type="minMidMax" maxColor="#294E70" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minType="percentile" minValue="99.99999"></scale>
+        </format>
+        <format type="color" field="type">
+          <colorPalette type="map">{"total":#294E70}</colorPalette>
+        </format>
+      </table>
     </panel>
     <panel>
-      <single>
+      <title>Authentication Integrations</title>
+      <table>
         <search>
-          <query>| rest splunk_server=local /services/authorization/roles 
-| eval type=if(match(title,"^(?:admin|can_delete|power|splunk-system-role|user|ess_admin|ess_analyst|ess_user)$$"),"default","custom") 
-| where (type == "custom") 
-| stats count</query>
-          <earliest>0</earliest>
-          <sampleRatio>1</sampleRatio>
-        </search>
-        <option name="colorBy">value</option>
-        <option name="colorMode">none</option>
-        <option name="drilldown">none</option>
-        <option name="numberPrecision">0</option>
-        <option name="rangeColors">["0x006d9c","0x006d9c"]</option>
-        <option name="rangeValues">[0]</option>
-        <option name="showSparkline">1</option>
-        <option name="showTrendIndicator">1</option>
-        <option name="trellis.enabled">0</option>
-        <option name="trellis.scales.shared">1</option>
-        <option name="trellis.size">medium</option>
-        <option name="trendColorInterpretation">standard</option>
-        <option name="trendDisplayMode">absolute</option>
-        <option name="underLabel">Custom Roles</option>
-        <option name="unitPosition">after</option>
-        <option name="useColors">1</option>
-        <option name="useThousandSeparators">1</option>
-      </single>
-    </panel>
-    <panel>
-      <single>
-        <search>
-          <query>| rest /services/authentication/users splunk_server=local
-| search (roles=admin)
-| stats count</query>
-          <earliest>-60m@m</earliest>
-          <latest>now</latest>
-          <sampleRatio>1</sampleRatio>
-        </search>
-        <option name="colorBy">value</option>
-        <option name="colorMode">none</option>
-        <option name="drilldown">none</option>
-        <option name="numberPrecision">0</option>
-        <option name="rangeColors">["0x53a051","0x53a051"]</option>
-        <option name="rangeValues">[0]</option>
-        <option name="showSparkline">1</option>
-        <option name="showTrendIndicator">1</option>
-        <option name="trellis.enabled">0</option>
-        <option name="trellis.scales.shared">1</option>
-        <option name="trellis.size">medium</option>
-        <option name="trendColorInterpretation">standard</option>
-        <option name="trendDisplayMode">absolute</option>
-        <option name="underLabel">Admins</option>
-        <option name="unitPosition">after</option>
-        <option name="useColors">1</option>
-        <option name="useThousandSeparators">1</option>
-      </single>
-    </panel>
-    <panel>
-      <single>
-        <search>
-          <query>| rest /services/authentication/users splunk_server=local 
-| stats count</query>
+          <query>| rest services/admin/SAML-groups 
+| rename title as SAML-group 
+| dedup title 
+| append 
+    [ rest services/admin/LDAP-groups 
+    | rename title as LDAP-group 
+    | dedup title] 
+| stats dc(SAML-group) as number_SAML-groups dc(LDAP-group) as number_LDAP-groups
+| transpose 
+| rename column as config, "row 1" as count
+| addcoltotals labelfield=config label=total</query>
           <earliest>-60m@m</earliest>
           <latest>now</latest>
           <sampleRatio>1</sampleRatio>
         </search>
         <option name="drilldown">none</option>
-        <option name="rangeColors">["0x53a051","0x53a051"]</option>
-        <option name="rangeValues">[0]</option>
-        <option name="underLabel">Total Users</option>
-        <option name="useColors">1</option>
-      </single>
+        <format type="color" field="config">
+          <colorPalette type="map">{"total":#294E70}</colorPalette>
+        </format>
+        <format type="color" field="count">
+          <colorPalette type="minMidMax" maxColor="#294E70" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minType="percentile" minValue="99.9999"></scale>
+        </format>
+      </table>
+    </panel>
+    <panel>
+      <title>Number of Indexes</title>
+      <table>
+        <search base="indexes_base_search">
+          <query>
+| rename eai:acl.app as app
+| stats count as number_indexes by app
+| addcoltotals number_indexes labelfield=app label=total</query>
+        </search>
+        <option name="drilldown">none</option>
+        <format type="color" field="app">
+          <colorPalette type="map">{"total":#294E70}</colorPalette>
+        </format>
+        <format type="color" field="number_indexes">
+          <colorPalette type="minMidMax" maxColor="#294E70" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minType="percentile" minValue="99.9999999"></scale>
+        </format>
+      </table>
     </panel>
   </row>
   <row>
-    <panel>
+    <panel id="html_header2">
       <html>
         <h1 align="center">Explore Data Access</h1>
       </html>
@@ -151,7 +143,7 @@
   </row>
   <row>
     <panel>
-      <title>Explore Roles</title>
+      <title>Role Details</title>
       <input type="multiselect" token="role_token" searchWhenChanged="true">
         <label>Filter by Role</label>
         <prefix>(</prefix>
@@ -162,40 +154,86 @@
         <fieldForValue>title</fieldForValue>
         <search>
           <query>| rest /services/authorization/roles
-| fields title</query>
+| fields title
+| dedup title</query>
           <earliest>0</earliest>
           <latest></latest>
         </search>
         <choice value="*">All</choice>
         <initialValue>*</initialValue>
       </input>
-      <table>
-        <title>Queries REST /services/authorization/roles for all indexes allowed by a role and its inherited roles.</title>
+      <input type="dropdown" token="srchIndexesAllowed_token" searchWhenChanged="true">
+        <label>srchIndexesAllowed</label>
+        <choice value="">- any -</choice>
+        <choice value="srchIndexesAllowed=&quot;_*&quot;">_*</choice>
+        <choice value="| where srchIndexesAllowed=&quot;*&quot;">*</choice>
+        <default></default>
+        <fieldForLabel>title</fieldForLabel>
+        <fieldForValue>title_token</fieldForValue>
         <search>
-          <query>| rest /services/authorization/roles splunk_server=local
-| search $role_token$
-| fields title srchIndexesAllowed srchIndexesDefault imported_roles imported_srchIndexesAllowed srchFilter defaultApp author updated
-| rename srchIndexesAllowed as idxAllowed 
-| rename srchIndexesDefault as idxDefault
-| rename imported_srchIndexesAllowed as idxAllowed_imported</query>
-          <earliest>-60m@m</earliest>
+          <query>|  rest services/data/indexes
+| dedup title
+| fields title
+| eval title_token="srchIndexesAllowed=".title</query>
+          <earliest>-24h@h</earliest>
           <latest>now</latest>
-          <sampleRatio>1</sampleRatio>
+        </search>
+      </input>
+      <input type="dropdown" token="srchIndexesAllowed_token" searchWhenChanged="true">
+        <label>imported_srchIndexesAllowed</label>
+        <choice value="">- any -</choice>
+        <choice value="imported_srchIndexesAllowed=&quot;_*&quot;">_*</choice>
+        <choice value="| where imported_srchIndexesAllowed=&quot;*&quot;">*</choice>
+        <default></default>
+        <fieldForLabel>title</fieldForLabel>
+        <fieldForValue>title_token</fieldForValue>
+        <search>
+          <query>|  rest services/data/indexes
+| dedup title
+| fields title
+| eval title_token="imported_srchIndexesAllowed=".title</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+      </input>
+      <input type="radio" token="capabilities_token" searchWhenChanged="true">
+        <label>Show Capabilities In a Column</label>
+        <choice value="capabilities number_users">yes</choice>
+        <choice value="number_users">no</choice>
+        <default>number_users</default>
+      </input>
+      <table>
+        <search base="roles_base_search">
+          <query>| fields title srchIndexesAllowed srchIndexesDefault srchFilter imported_roles imported_srchIndexesAllowed imported_srchFilter defaultApp author number_capabilities number_users capabilities
+| rename imported_* as "imported *"
+| search $role_token$ $srchIndexesAllowed_token$ 
+| eval capabilities=mvjoin(capabilities,"; ") 
+| table title srchIndexesAllowed srchIndexesDefault srchFilter imported* defaultApp author number_capabilities $capabilities_token$ 
+| sort - number_users updated</query>
         </search>
         <option name="count">20</option>
         <option name="dataOverlayMode">none</option>
         <option name="drilldown">none</option>
         <option name="percentagesRow">false</option>
-        <option name="refresh.display">progressbar</option>
-        <option name="rowNumbers">false</option>
+        <option name="rowNumbers">true</option>
         <option name="totalsRow">false</option>
         <option name="wrap">true</option>
+        <format type="color" field="number_users">
+          <colorPalette type="minMidMax" maxColor="#294E70" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="0"></scale>
+        </format>
+        <format type="color" field="number_capabilities">
+          <colorPalette type="minMidMax" maxColor="#294E70" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="0"></scale>
+        </format>
         <format type="color" field="title">
           <colorPalette type="sharedList"></colorPalette>
           <scale type="sharedCategory"></scale>
         </format>
       </table>
     </panel>
+  </row>
+  <row>
     <panel>
       <title>Explore Users</title>
       <input type="multiselect" token="userSrch_user_token" searchWhenChanged="true">
@@ -210,7 +248,8 @@
         <fieldForValue>title</fieldForValue>
         <search>
           <query>| rest /services/authentication/users
-| fields title</query>
+| fields title
+| dedup title</query>
           <earliest>0</earliest>
           <latest></latest>
         </search>
@@ -227,27 +266,19 @@
         <fieldForValue>title</fieldForValue>
         <search>
           <query>| rest /services/authorization/roles
-| fields title</query>
+| fields title
+| dedup title</query>
           <earliest>0</earliest>
           <latest></latest>
         </search>
       </input>
       <table>
         <title>Queries REST /services/authentication/users for all roles assigned to a user.</title>
-        <search>
-          <query>| rest /services/authentication/users splunk_server=local 
-| search $userSrch_user_token$ $userSrch_role_token$
-| eval lastLogin=strftime(last_successful_login,"%m/%d/%y %H:%M")
-| eval timeSinceLastLogin=now()-last_successful_login
-| eval sinceLastLogin=case(timeSinceLastLogin &lt; 3600, round(timeSinceLastLogin / 60) . " min ago", timeSinceLastLogin &lt; 86400, round(timeSinceLastLogin / 3600) . " hours ago", 1=1, round(timeSinceLastLogin / 86400) . " days ago")
-| eval lastLogin=lastLogin." - ".sinceLastLogin
-| sort - lastLogin
-| rename title as userName 
-| rename realname as Name
-| fields Name userName email roles type lastLogin defaultApp</query>
-          <earliest>-60m@m</earliest>
-          <latest>now</latest>
-          <sampleRatio>1</sampleRatio>
+        <search base="users_base_search">
+          <query>| eval last_successful_login=last_successful_login." - ".elapsed_since_login | search $userSrch_user_token$ $userSrch_role_token$ 
+| rename title as userName, realname as Name 
+| table Name userName email roles num_roles type last_successful_login defaultApp 
+| sort - lastLogin</query>
         </search>
         <option name="count">20</option>
         <option name="dataOverlayMode">none</option>
@@ -266,20 +297,13 @@
         </format>
       </table>
     </panel>
-  </row>
-  <row>
     <panel>
       <title>Role Inheritance</title>
       <viz type="sankey_diagram_app.sankey_diagram">
         <title>Queries REST /services/authorization/roles for imported roles by role. Roles on the right inherit those to the left.</title>
-        <search>
-          <query>| rest /services/authorization/roles
-| fields title imported_roles 
-| mvexpand imported_roles 
+        <search base="roles_base_search">
+          <query>| mvexpand imported_roles 
 | stats count by imported_roles title</query>
-          <earliest>-60m@m</earliest>
-          <latest>now</latest>
-          <sampleRatio>1</sampleRatio>
         </search>
         <option name="drilldown">none</option>
         <option name="refresh.display">progressbar</option>
@@ -298,102 +322,6 @@
         <option name="trellis.scales.shared">1</option>
         <option name="trellis.size">medium</option>
       </viz>
-    </panel>
-  </row>
-  <row>
-    <panel>
-      <html>
-        <h1 align="center">User and Role Modification History</h1>
-      </html>
-    </panel>
-  </row>
-  <row>
-    <panel>
-      <input type="time" token="userEdits_timerange" searchWhenChanged="true">
-        <label>Time Range</label>
-        <default>
-          <earliest>@w0</earliest>
-          <latest>now</latest>
-        </default>
-      </input>
-      <input type="multiselect" token="operationToken" searchWhenChanged="true">
-        <label>Filter by Operation</label>
-        <choice value="create">create</choice>
-        <choice value="edit">edit</choice>
-        <choice value="remove">remove</choice>
-        <choice value="list">list</choice>
-        <default>create,edit,remove</default>
-        <prefix>(</prefix>
-        <suffix>)</suffix>
-        <valuePrefix>operation=</valuePrefix>
-        <delimiter> OR </delimiter>
-      </input>
-      <viz type="timeline_app.timeline">
-        <title>Queries audit log, separates by user object, and colors by operation. List operations not shown.</title>
-        <search>
-          <query>index=_audit info=* action=edit_user $operationToken$ info=granted
-| transaction user object operation
-| table _time object operation duration</query>
-          <earliest>$userEdits_timerange.earliest$</earliest>
-          <latest>$userEdits_timerange.latest$</latest>
-          <sampleRatio>1</sampleRatio>
-        </search>
-        <option name="drilldown">none</option>
-        <option name="refresh.display">progressbar</option>
-        <option name="timeline_app.timeline.axisTimeFormat">DAYS</option>
-        <option name="timeline_app.timeline.colorMode">categorical</option>
-        <option name="timeline_app.timeline.maxColor">#DA5C5C</option>
-        <option name="timeline_app.timeline.minColor">#FFE8E8</option>
-        <option name="timeline_app.timeline.numOfBins">6</option>
-        <option name="timeline_app.timeline.tooltipTimeFormat">SECONDS</option>
-        <option name="timeline_app.timeline.useColors">1</option>
-        <option name="trellis.enabled">0</option>
-        <option name="trellis.scales.shared">1</option>
-        <option name="trellis.size">medium</option>
-      </viz>
-    </panel>
-  </row>
-  <row>
-    <panel>
-      <title>User and Role Modifications - Table</title>
-      <table>
-        <title>transactions are grouped by user, object, operation, and limited to 1 minute.</title>
-        <search>
-          <query>index=_audit info=* action=edit_user $operationToken$ info=granted
-| transaction maxspan=1m user object operation splunk_server
-| table user _time operation object _raw splunk_server eventcount duration
-| sort - _time</query>
-          <earliest>$userEdits_timerange.earliest$</earliest>
-          <latest>$userEdits_timerange.latest$</latest>
-          <sampleRatio>1</sampleRatio>
-        </search>
-        <option name="count">10</option>
-        <option name="dataOverlayMode">none</option>
-        <option name="drilldown">none</option>
-        <option name="percentagesRow">false</option>
-        <option name="rowNumbers">false</option>
-        <option name="totalsRow">false</option>
-        <option name="wrap">true</option>
-        <format type="color" field="operation">
-          <colorPalette type="map">{"remove":#DC4E41,"create":#4FA484,"edit":#294E70,"list":#62B3B2}</colorPalette>
-        </format>
-        <format type="color" field="duration">
-          <colorPalette type="minMidMax" maxColor="#DC4E41" minColor="#FFFFFF"></colorPalette>
-          <scale type="minMidMax" minValue="0"></scale>
-        </format>
-        <format type="color" field="object">
-          <colorPalette type="sharedList"></colorPalette>
-          <scale type="sharedCategory"></scale>
-        </format>
-        <format type="color" field="user">
-          <colorPalette type="sharedList"></colorPalette>
-          <scale type="sharedCategory"></scale>
-        </format>
-        <format type="number" field="duration">
-          <option name="precision">0</option>
-          <option name="unit">s</option>
-        </format>
-      </table>
     </panel>
   </row>
 </form>
