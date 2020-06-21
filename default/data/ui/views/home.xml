@@ -1,18 +1,101 @@
-<dashboard theme="light">
+<dashboard theme="light" stylesheet="admin_assistant_stylesheet.css">
   <label>Home</label>
+  <description>A landing page for Admin Assistant users.</description>
+  <!-- Set some tokens for our Panels -->
+  <search id="views_in_this_app_baseSearch">
+    <query>
+    | rest /servicesNS/-/-/data/ui/views
+    | search eai:acl.app=admin_assistant
+    | dedup title
+    | stats count
+    </query>
+    <done>
+      <set token="views_in_this_app">$result.views_in_this_app_baseSearch$</set>
+    </done>
+  </search>
   <row>
-    <panel>
+    <panel id="html_header1">
       <html encoded="1">&lt;h1 align="center"&gt;Welcome to Admin Assistant!&lt;/h1&gt;
         &lt;p align="center"&gt;Explore your data, users, performance, and more!&lt;/p&gt;</html>
     </panel>
   </row>
   <row>
+    <panel id="adminAssistant_whoShouldUseThisApp">
+      <title>Let's get started, $env:user_realname$!</title>
+      <html>
+        <h3>Who should use this app?</h3>
+<p>This app is designed for users with the <code>admin</code> role and/or its associated capabilities.</p>
+<p>Navigate using the menu at the top to analyze the Splunk deployment.</p>
+<p>Searches return metrics from Splunk's <code>_internal</code> and <code>_audit</code> indexes, the Splunk <code>REST</code> API, and more.</p>
+<h3>What can I find out using the Admin Assistant app?</h3>
+<p>Splunk provides an immense amount of data on itself. The Admin Assistant app is intended to serve as a central location for key project metrics around security, system adoption, and resource utilization. Use cases are generally centered around the following questions:</p>
+<ul>How are users provided access to data?</ul>
+<ul>Who searches the data and what do they search?</ul>
+<ul>Is the system performant?</ul>
+<ul>Is data being ingested as expected?</ul>
+        </html>
+    </panel>
     <panel>
+      <title>Your User Context</title>
       <table>
-        <title>Details about this app from the REST API</title>
+        <title>This information comes from the Splunk REST API.</title>
+        <search>
+          <query>|  rest /services/authentication/current-context
+| eval is_admin=if(roles="admin", "y", "n"), rest_properties_get=if(capabilities="rest_properties_get", "y", "n"), list_metrics_catalog=if(capabilities="list_metrics_catalog", "y", "n"), get_metadata=if(capabilities="get_metadata", "y", "n")
+| eval lastLogin=strftime(last_successful_login,"%Y-%m-%d %H:%M")
+| eval timeSinceLastLogin=now()-last_successful_login
+| eval sinceLastLogin=case(timeSinceLastLogin &lt; 3600, round(timeSinceLastLogin / 60) . " min ago", timeSinceLastLogin &lt; 86400, round(timeSinceLastLogin / 3600) . " hours ago", 1=1, round(timeSinceLastLogin / 86400) . " days ago")
+| eval last_successful_login=lastLogin." - ".sinceLastLogin
+| table realname username email type roles defaultApp last_successful_login is_admin rest_properties_get list_metrics_catalog
+| eval value="value"
+| transpose column_name=property header_field="value"</query>
+          <earliest>-60m@m</earliest>
+          <latest>now</latest>
+          <sampleRatio>1</sampleRatio>
+        </search>
+        <option name="count">20</option>
+        <option name="dataOverlayMode">none</option>
+        <option name="drilldown">none</option>
+        <option name="percentagesRow">false</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="rowNumbers">false</option>
+        <option name="totalsRow">false</option>
+        <option name="wrap">true</option>
+        <format type="color" field="value">
+          <colorPalette type="map">{"y":#53A051,"n":#DC4E41}</colorPalette>
+        </format>
+      </table>
+    </panel>
+    <panel>
+      <title>Searches Used in this App</title>
+      <html>
+<p>Splunk searches are typically written with a query returning results, followed by commands. Commands are preceded by a pipe character <code>|</code> as follows:</p>
+<pre><code>index=myindex sourcetype=mysourcetype
+| stats count by host
+| sort - count</code></pre>
+    <p>Some Splunk reporting commands, however, are not preceded by a search query and are invoked directly after a <code>|</code> character in the first line. These commands include but are not limited to <code>tstats</code>, <code>mstats</code>, <code>mcatalog</code>, <code>REST</code>, <code>metadata</code>, <code>dbinspect</code>, <code>fieldsummary</code>, and <code>history</code>. The REST API in particular warrants example:</p>
+<pre><code>| rest splunk_server=local services/authentication/users
+| stats count</code></pre>
+</html>
+    </panel>
+  </row>
+  <row>
+    <panel id="html_header2">
+      <html encoded="1">&lt;h1 align="center"&gt;About Admin Assistant&lt;/h1&gt;
+        </html>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <title>App Details</title>
+      <table>
+        <title>Like the user context panel above, this comes from the REST API.</title>
         <search>
           <query>|  rest /services/apps/local/admin_assistant
-| fields label title author version description eai:acl.perms.read eai:acl.perms.write eai:acl.sharing updated</query>
+| fields label title author version description eai:acl.perms.read eai:acl.perms.write eai:acl.sharing updated
+| eval value="value"
+| rename eai:acl.perms.* as *_permissions
+| transpose column_name=property header_field="value"</query>
           <earliest>-60m@m</earliest>
           <latest>now</latest>
           <sampleRatio>1</sampleRatio>
@@ -29,62 +112,57 @@
           <colorPalette type="sharedList"></colorPalette>
           <scale type="sharedCategory"></scale>
         </format>
+        <format type="color" field="property">
+          <colorPalette type="sharedList"></colorPalette>
+          <scale type="sharedCategory"></scale>
+        </format>
       </table>
     </panel>
-  </row>
-  <row>
     <panel>
-      <html>
-        <h3>Who should use this app?</h3>
-<p>This app is designed for users with the <code>admin</code> role and/or its associated capabilities.</p>
-<p>Navigate using the menu at the top to analyze the Splunk deployment.</p>
-<p>Searches return metrics from Splunk's <code>_internal</code> and <code>_audit</code> indexes, the Splunk <code>REST</code> API, and more.</p>
-<h3>What can I find out using the Admin Assistant app?</h3>
-<p>Splunk provides an immense amount of data on itself. The Admin Assistant app is intended to serve as a central location for key project metrics around security, system adoption, and resource utilization. Use cases are generally centered around the following questions:</p>
-<ul>How are users provided access to data?</ul>
-<ul>Who searches the data and what do they search?</ul>
-<ul>Are searches performant?</ul>
-<ul>Is data being ingested as expected?</ul>
-        </html>
-    </panel>
-    <panel>
-      <html>
-<p>Splunk searches are typically written with a query returning results, followed by commands. Commands are preceded by a pipe character <code>|</code> as follows:</p>
-<pre>
-          <code>
-index=myindex sourcetype=mysourcetype
-| stats count by host
-| sort - count</code>
-        </pre>
-    <p>Some Splunk reporting commands, however, are not preceded by a search query and are invoked directly after a <code>|</code> character in the first line. These commands include but are not limited to <code>tstats</code>, <code>mstats</code>, <code>mcatalog</code>, <code>REST</code>, <code>metadata</code>, <code>dbinspect</code>, <code>fieldsummary</code>, and <code>history</code>. The REST API in particular warrants example:</p>
-<pre>
-          <code>
-| rest splunk_server=local services/authentication/users
-| stats count 
-    </code>
-        </pre>
-        </html>
-    </panel>
-  </row>
-  <row>
-    <panel>
-      <table>
-        <title>Views in this app</title>
+      <title>Views in this App</title>
+      <viz type="sankey_diagram_app.sankey_diagram">
+        <title>Forms have inputs like drop-downs and radio buttons, while dashboards do not.</title>
         <search>
           <query>| rest /servicesNS/-/-/data/ui/views
 | search eai:acl.app=admin_assistant
-| fields label title description rootNode author version eai:acl.owner eai:userName eai:acl.perms.write eai:acl.perms.read eai:appName updated
-| sort - updated</query>
+| stats count by label rootNode</query>
           <earliest>-60m@m</earliest>
           <latest>now</latest>
           <sampleRatio>1</sampleRatio>
         </search>
-        <option name="count">20</option>
+        <option name="drilldown">none</option>
+        <option name="sankey_diagram_app.sankey_diagram.colorMode">categorical</option>
+        <option name="sankey_diagram_app.sankey_diagram.maxColor">#3fc77a</option>
+        <option name="sankey_diagram_app.sankey_diagram.minColor">#d93f3c</option>
+        <option name="sankey_diagram_app.sankey_diagram.numOfBins">6</option>
+        <option name="sankey_diagram_app.sankey_diagram.showBackwards">false</option>
+        <option name="sankey_diagram_app.sankey_diagram.showLabels">true</option>
+        <option name="sankey_diagram_app.sankey_diagram.showLegend">false</option>
+        <option name="sankey_diagram_app.sankey_diagram.showSelf">false</option>
+        <option name="sankey_diagram_app.sankey_diagram.showTooltip">false</option>
+        <option name="sankey_diagram_app.sankey_diagram.styleBackwards">false</option>
+        <option name="sankey_diagram_app.sankey_diagram.useColors">true</option>
+      </viz>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <title>View Details</title>
+      <table>
+        <search>
+          <query>| rest /servicesNS/-/-/data/ui/views
+| search eai:acl.app=admin_assistant
+| fields label description title rootNode author updated
+| sort label</query>
+          <earliest>-60m@m</earliest>
+          <latest>now</latest>
+          <sampleRatio>1</sampleRatio>
+        </search>
+        <option name="count">10</option>
         <option name="dataOverlayMode">none</option>
         <option name="drilldown">none</option>
         <option name="percentagesRow">false</option>
-        <option name="refresh.display">progressbar</option>
-        <option name="rowNumbers">false</option>
+        <option name="rowNumbers">true</option>
         <option name="totalsRow">false</option>
         <option name="wrap">true</option>
         <format type="color" field="label">
