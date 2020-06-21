@@ -1,127 +1,177 @@
-<form theme="light">
+<form theme="light" stylesheet="admin_assistant_stylesheet.css">
   <label>Dashboard Adoption</label>
-  <description>WIP - Explore use of dashboards over time.</description>
-  <fieldset submitButton="false" autoRun="true">
-    <input type="time" token="dashboardAdoption_timepicker" searchWhenChanged="true">
+  <description>Explore use of dashboards over time.  Base search queries splunkd_ui_access.</description>
+  <!-- Base Search -->
+  <search id="dashboardAdoption_baseSearch">
+    <query>
+      index="_internal" sourcetype=splunkd_ui_access $dashboardAdoption_userFilter$ "en-US/app" 
+      | fields _time user bytes uri_path file sid spent
+      | rex field=uri_path "en-US/app/(?&lt;app&gt;[^/]+)/(?&lt;dashboard&gt;[^?/\s]+)" 
+    </query>
+    <earliest>$dashboardAdoption_timepicker.earliest$</earliest>
+    <latest>$dashboardAdoption_timepicker.latest$</latest>
+  </search>
+  <!-- Form Inputs -->
+  <!-- Panels Begin -->
+  <fieldset submitButton="true" autoRun="true">
+    <input type="time" token="dashboardAdoption_timepicker" searchWhenChanged="false">
       <label>Time Range</label>
       <default>
-        <earliest>-7d@h</earliest>
+        <earliest>@w0</earliest>
         <latest>now</latest>
       </default>
     </input>
+    <input type="multiselect" token="dashboardAdoption_userFilter">
+      <label>Filter by User</label>
+      <choice value="*">All</choice>
+      <prefix>(</prefix>
+      <suffix>)</suffix>
+      <valuePrefix>user=</valuePrefix>
+      <delimiter> OR </delimiter>
+      <fieldForLabel>title</fieldForLabel>
+      <fieldForValue>title</fieldForValue>
+      <search>
+        <query>| rest services/authentication/users
+| fields title
+| dedup title</query>
+        <earliest>-24h@h</earliest>
+        <latest>now</latest>
+      </search>
+      <initialValue>*</initialValue>
+    </input>
   </fieldset>
   <row>
-    <panel>
-      <html>
-        <h1 align="center">Views</h1>
-        <p align="center">Usage of views across the Splunk deployment.</p>
+    <panel id="html_header1">
+      <html encoded="1">&lt;h1 align="center"&gt;Dashboards Overview&lt;/h1&gt;
       </html>
     </panel>
   </row>
   <row>
     <panel>
-      <title>Total Views</title>
-      <single>
-        <search>
-          <query>index="_internal" user!="-" sourcetype=splunkd_ui_access "en-US/app"
-| timechart span=1d count</query>
-          <earliest>$dashboardAdoption_timepicker.earliest$</earliest>
-          <latest>$dashboardAdoption_timepicker.latest$</latest>
-          <sampleRatio>1</sampleRatio>
+      <title>Dashboard Adoption Metrics</title>
+      <table>
+        <title>User Activity for time range selected above.</title>
+        <search base="dashboardAdoption_baseSearch">
+          <query>| stats count as "Total Count" dc(user) as "Distinct Users" dc(app) as "Distinct Apps" dc(dashboard) as "Distinct Dashboards"
+| transpose
+| rename column as metric, "row 1" as value</query>
         </search>
-        <option name="colorBy">trend</option>
-        <option name="colorMode">none</option>
         <option name="drilldown">none</option>
-        <option name="numberPrecision">0</option>
-        <option name="rangeColors">["0x53a051","0x0877a6","0xf8be34","0xf1813f","0xdc4e41"]</option>
-        <option name="rangeValues">[0,30,70,100]</option>
-        <option name="refresh.display">progressbar</option>
-        <option name="showSparkline">1</option>
-        <option name="showTrendIndicator">1</option>
-        <option name="trellis.enabled">0</option>
-        <option name="trellis.scales.shared">1</option>
-        <option name="trellis.size">medium</option>
-        <option name="trendColorInterpretation">standard</option>
-        <option name="trendDisplayMode">absolute</option>
-        <option name="trendInterval">-24h</option>
-        <option name="underLabel">24hr Trend</option>
-        <option name="unitPosition">after</option>
-        <option name="useColors">1</option>
-        <option name="useThousandSeparators">1</option>
-      </single>
+        <format type="color" field="metric">
+          <colorPalette type="sharedList"></colorPalette>
+          <scale type="sharedCategory"></scale>
+        </format>
+      </table>
     </panel>
     <panel>
-      <title>Distinct Dashboards Viewed</title>
-      <single>
+      <title>Total Dashboards</title>
+      <table>
+        <title>by rootNode</title>
         <search>
-          <query>index="_internal" user!="-" sourcetype=splunkd_ui_access "en-US/app"
-| fields user uri_path
-| rex field=uri_path "en-US/app/(?&lt;app&gt;[^/]+)/(?&lt;dashboard&gt;[^?/\s]+)" 
-| search dashboard!="job_management" dashboard!="dbinfo" dashboard!="*en-us" dashboard!="search" dashboard!="home" dashboard!="alerts" dashboard!="dashboards" dashboard!="reports" dashboard!="report" 
-| timechart span=1d dc(dashboard)</query>
-          <earliest>$dashboardAdoption_timepicker.earliest$</earliest>
-          <latest>$dashboardAdoption_timepicker.latest$</latest>
-          <sampleRatio>1</sampleRatio>
+          <query>|  rest services/data/ui/views
+| dedup title
+| stats count by rootNode
+| sort - count
+| addcoltotals count labelfield=rootNode label=total</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
         </search>
-        <option name="colorBy">trend</option>
-        <option name="colorMode">none</option>
         <option name="drilldown">none</option>
-        <option name="rangeColors">["0x53a051","0x0877a6","0xf8be34","0xf1813f","0xdc4e41"]</option>
-        <option name="refresh.display">progressbar</option>
-        <option name="trendInterval">-24h</option>
-        <option name="underLabel">24hr Trend</option>
-        <option name="useColors">1</option>
-      </single>
+        <format type="color" field="rootNode">
+          <colorPalette type="map">{"total":#294E70}</colorPalette>
+        </format>
+        <format type="color" field="count">
+          <colorPalette type="minMidMax" maxColor="#294E70" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minType="percentile" minValue="99.99999"></scale>
+        </format>
+      </table>
     </panel>
     <panel>
-      <title>Distinct Users Who Viewed Dashboards</title>
-      <single>
+      <title>Total Dashboards by App</title>
+      <chart>
+        <title>ALL configured dashboards - NOT a count of user views.</title>
         <search>
-          <query>index="_internal" user!="-" sourcetype=splunkd_ui_access "en-US/app"
-| timechart span=1d@d dc(user)</query>
-          <earliest>$dashboardAdoption_timepicker.earliest$</earliest>
-          <latest>$dashboardAdoption_timepicker.latest$</latest>
-          <sampleRatio>1</sampleRatio>
+          <query>|  rest services/data/ui/views
+| dedup title
+| stats count by eai:acl.app
+| addcoltotals count labelfield=rootNode label=total</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
         </search>
-        <option name="colorBy">trend</option>
-        <option name="colorMode">none</option>
-        <option name="drilldown">none</option>
-        <option name="numberPrecision">0</option>
-        <option name="rangeColors">["0x53a051","0x0877a6","0xf8be34","0xf1813f","0xdc4e41"]</option>
-        <option name="rangeValues">[0,30,70,100]</option>
+        <option name="charting.chart">pie</option>
+        <option name="charting.drilldown">none</option>
         <option name="refresh.display">progressbar</option>
-        <option name="showSparkline">1</option>
-        <option name="showTrendIndicator">1</option>
-        <option name="trellis.enabled">0</option>
-        <option name="trellis.scales.shared">1</option>
-        <option name="trellis.size">medium</option>
-        <option name="trendColorInterpretation">standard</option>
-        <option name="trendDisplayMode">absolute</option>
-        <option name="trendInterval">-24h</option>
-        <option name="underLabel">24hr Trend</option>
-        <option name="unitPosition">after</option>
-        <option name="useColors">1</option>
-        <option name="useThousandSeparators">1</option>
-      </single>
+      </chart>
+    </panel>
+  </row>
+  <row>
+    <panel id="html_header2">
+      <html>
+        <h1 align="center">Dashboards over Time</h1>
+        <p align="center">Adoption of dashboards across the user base over time.</p>
+      </html>
     </panel>
   </row>
   <row>
     <panel>
-      <title>Dashboards Adoption</title>
+      <title>Dashboards Adoption Metrics Over Time</title>
       <chart>
-        <title>Total Count of all view events (left Y-axis) are overlaid by the distinct count of users and views (right Y-axis) over time.</title>
-        <search>
-          <query>index="_internal" user!="-" sourcetype=splunkd_ui_access "en-US/app" 
-| rex field=uri_path "en-US/app/(?&lt;app&gt;[^/]+)/(?&lt;dashboard&gt;[^?/\s]+)" 
-| search dashboard!="job_management" dashboard!="dbinfo" dashboard!="*en-us" dashboard!="search" dashboard!="home" dashboard!="alerts" dashboard!="dashboards" dashboard!="reports" dashboard!="report" 
-| timechart count as "Total Count" dc(user) as "Distinct Users" dc(dashboard) as "Distinct Views"</query>
-          <earliest>$dashboardAdoption_timepicker.earliest$</earliest>
-          <latest>$dashboardAdoption_timepicker.latest$</latest>
-          <sampleRatio>1</sampleRatio>
+        <search base="dashboardAdoption_baseSearch">
+          <query>| timechart count as "Total Count" dc(user) as "Distinct Users" dc(app) as "Distinct Apps" dc(dashboard) as "Distinct Dashboards"</query>
         </search>
         <option name="charting.axisLabelsX.majorLabelStyle.overflowMode">ellipsisMiddle</option>
         <option name="charting.axisLabelsX.majorLabelStyle.rotation">-45</option>
         <option name="charting.axisLabelsY2.majorUnit">10</option>
+        <option name="charting.axisTitleX.visibility">collapsed</option>
+        <option name="charting.axisTitleY.visibility">collapsed</option>
+        <option name="charting.axisTitleY2.visibility">visible</option>
+        <option name="charting.axisX.abbreviation">none</option>
+        <option name="charting.axisX.scale">linear</option>
+        <option name="charting.axisY.abbreviation">none</option>
+        <option name="charting.axisY.scale">linear</option>
+        <option name="charting.axisY2.abbreviation">none</option>
+        <option name="charting.axisY2.enabled">0</option>
+        <option name="charting.axisY2.scale">linear</option>
+        <option name="charting.chart">column</option>
+        <option name="charting.chart.bubbleMaximumSize">50</option>
+        <option name="charting.chart.bubbleMinimumSize">10</option>
+        <option name="charting.chart.bubbleSizeBy">area</option>
+        <option name="charting.chart.nullValueMode">gaps</option>
+        <option name="charting.chart.showDataLabels">all</option>
+        <option name="charting.chart.sliceCollapsingThreshold">0.01</option>
+        <option name="charting.chart.stackMode">stacked</option>
+        <option name="charting.chart.style">shiny</option>
+        <option name="charting.drilldown">none</option>
+        <option name="charting.layout.splitSeries">1</option>
+        <option name="charting.layout.splitSeries.allowIndependentYRanges">1</option>
+        <option name="charting.legend.labelStyle.overflowMode">ellipsisMiddle</option>
+        <option name="charting.legend.mode">standard</option>
+        <option name="charting.legend.placement">top</option>
+        <option name="charting.lineWidth">2</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="trellis.enabled">0</option>
+        <option name="trellis.scales.shared">1</option>
+        <option name="trellis.size">medium</option>
+      </chart>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <title>Apps and Dashboard Use Over Time</title>
+      <input type="link" token="timechart_splitBy" searchWhenChanged="true">
+        <label>Split By</label>
+        <choice value="dashboard">dashboard</choice>
+        <choice value="app">app</choice>
+        <choice value="user">user</choice>
+        <default>dashboard</default>
+      </input>
+      <chart>
+        <search base="dashboardAdoption_baseSearch">
+          <query>
+| timechart count by $timechart_splitBy$</query>
+        </search>
+        <option name="charting.axisLabelsX.majorLabelStyle.overflowMode">ellipsisNone</option>
+        <option name="charting.axisLabelsX.majorLabelStyle.rotation">-45</option>
         <option name="charting.axisTitleX.visibility">collapsed</option>
         <option name="charting.axisTitleY.visibility">visible</option>
         <option name="charting.axisTitleY2.visibility">visible</option>
@@ -130,22 +180,21 @@
         <option name="charting.axisY.abbreviation">none</option>
         <option name="charting.axisY.scale">linear</option>
         <option name="charting.axisY2.abbreviation">none</option>
-        <option name="charting.axisY2.enabled">1</option>
-        <option name="charting.axisY2.scale">linear</option>
+        <option name="charting.axisY2.enabled">0</option>
+        <option name="charting.axisY2.scale">inherit</option>
         <option name="charting.chart">column</option>
         <option name="charting.chart.bubbleMaximumSize">50</option>
         <option name="charting.chart.bubbleMinimumSize">10</option>
         <option name="charting.chart.bubbleSizeBy">area</option>
         <option name="charting.chart.nullValueMode">gaps</option>
-        <option name="charting.chart.overlayFields">"Distinct Users","Distinct Views"</option>
         <option name="charting.chart.showDataLabels">none</option>
         <option name="charting.chart.sliceCollapsingThreshold">0.01</option>
         <option name="charting.chart.stackMode">stacked</option>
         <option name="charting.chart.style">shiny</option>
-        <option name="charting.drilldown">none</option>
+        <option name="charting.drilldown">all</option>
         <option name="charting.layout.splitSeries">0</option>
         <option name="charting.layout.splitSeries.allowIndependentYRanges">0</option>
-        <option name="charting.legend.labelStyle.overflowMode">ellipsisMiddle</option>
+        <option name="charting.legend.labelStyle.overflowMode">ellipsisEnd</option>
         <option name="charting.legend.mode">standard</option>
         <option name="charting.legend.placement">bottom</option>
         <option name="charting.lineWidth">2</option>
@@ -155,26 +204,33 @@
         <option name="trellis.size">medium</option>
       </chart>
     </panel>
+  </row>
+  <row>
+    <panel id="html_header3">
+      <html encoded="1">&lt;h1 align="center"&gt;Top Dashboards&lt;/h1&gt;
+        &lt;p align="center"&gt;By app and user.&lt;/p&gt;</html>
+    </panel>
+  </row>
+  <row>
     <panel>
-      <title>Top 10 Views by User</title>
+      <title>Top 10 Dashboards</title>
+      <input type="link" token="top10dashboard_splitBy" searchWhenChanged="true">
+        <label>Split By</label>
+        <choice value="app">app</choice>
+        <choice value="user">user</choice>
+        <default>app</default>
+      </input>
       <chart>
-        <title>Queries internal access logs for views by user.</title>
-        <search>
-          <query>index="_internal" user!="-" sourcetype=splunkd_ui_access "en-US/app" 
-| rex field=uri_path "en-US/app/(?&lt;app&gt;[^/]+)/(?&lt;dashboard&gt;[^?/\s]+)" 
-| search dashboard!="job_management" dashboard!="dbinfo" dashboard!="*en-us" dashboard!="search" dashboard!="home" dashboard!="alerts" dashboard!="dashboards" dashboard!="reports" dashboard!="report"
-| chart count as views over dashboard by user
-| addtotals  fieldname=temp_sort
-| sort - temp_sort
-| head 10
+        <search base="dashboardAdoption_baseSearch">
+          <query>| chart count as views over dashboard by $top10dashboard_splitBy$ 
+| addtotals fieldname=temp_sort 
+| sort - temp_sort 
+| head 10 
 | fields - temp_sort</query>
-          <earliest>$dashboardAdoption_timepicker.earliest$</earliest>
-          <latest>$dashboardAdoption_timepicker.latest$</latest>
-          <sampleRatio>1</sampleRatio>
         </search>
         <option name="charting.axisLabelsX.majorLabelStyle.overflowMode">ellipsisNone</option>
         <option name="charting.axisLabelsX.majorLabelStyle.rotation">0</option>
-        <option name="charting.axisTitleX.visibility">visible</option>
+        <option name="charting.axisTitleX.visibility">collapsed</option>
         <option name="charting.axisTitleY.visibility">collapsed</option>
         <option name="charting.axisTitleY2.visibility">visible</option>
         <option name="charting.axisX.abbreviation">none</option>
@@ -206,71 +262,21 @@
         <option name="trellis.size">medium</option>
       </chart>
     </panel>
-  </row>
-  <row>
     <panel>
-      <title>Dashboard Views Over Time</title>
+      <title>Top 10 Apps</title>
+      <input type="link" token="top10Apps_splitBy" searchWhenChanged="true">
+        <label>Split By</label>
+        <choice value="dashboard">dashboard</choice>
+        <choice value="user">user</choice>
+        <default>dashboard</default>
+      </input>
       <chart>
-        <title>Queries internal web access logs by name over time.</title>
-        <search>
-          <query>index="_internal" user!="-" sourcetype=splunkd_ui_access "en-US/app" 
-| rex field=uri_path "en-US/app/(?&lt;app&gt;[^/]+)/(?&lt;dashboard&gt;[^?/\s]+)" 
-| search dashboard!="job_management" dashboard!="dbinfo" dashboard!="*en-us" dashboard!="search" dashboard!="home" dashboard!="alerts" dashboard!="dashboards" dashboard!="reports" dashboard!="report" 
-| timechart count by dashboard</query>
-          <earliest>$dashboardAdoption_timepicker.earliest$</earliest>
-          <latest>$dashboardAdoption_timepicker.latest$</latest>
-          <sampleRatio>1</sampleRatio>
-        </search>
-        <option name="charting.axisLabelsX.majorLabelStyle.overflowMode">ellipsisNone</option>
-        <option name="charting.axisLabelsX.majorLabelStyle.rotation">-45</option>
-        <option name="charting.axisTitleX.visibility">collapsed</option>
-        <option name="charting.axisTitleY.visibility">visible</option>
-        <option name="charting.axisTitleY2.visibility">visible</option>
-        <option name="charting.axisX.abbreviation">none</option>
-        <option name="charting.axisX.scale">linear</option>
-        <option name="charting.axisY.abbreviation">none</option>
-        <option name="charting.axisY.scale">linear</option>
-        <option name="charting.axisY2.abbreviation">none</option>
-        <option name="charting.axisY2.enabled">0</option>
-        <option name="charting.axisY2.scale">inherit</option>
-        <option name="charting.chart">column</option>
-        <option name="charting.chart.bubbleMaximumSize">50</option>
-        <option name="charting.chart.bubbleMinimumSize">10</option>
-        <option name="charting.chart.bubbleSizeBy">area</option>
-        <option name="charting.chart.nullValueMode">gaps</option>
-        <option name="charting.chart.showDataLabels">none</option>
-        <option name="charting.chart.sliceCollapsingThreshold">0.01</option>
-        <option name="charting.chart.stackMode">stacked</option>
-        <option name="charting.chart.style">shiny</option>
-        <option name="charting.drilldown">none</option>
-        <option name="charting.layout.splitSeries">0</option>
-        <option name="charting.layout.splitSeries.allowIndependentYRanges">0</option>
-        <option name="charting.legend.labelStyle.overflowMode">ellipsisMiddle</option>
-        <option name="charting.legend.mode">standard</option>
-        <option name="charting.legend.placement">bottom</option>
-        <option name="charting.lineWidth">2</option>
-        <option name="refresh.display">progressbar</option>
-        <option name="trellis.enabled">0</option>
-        <option name="trellis.scales.shared">1</option>
-        <option name="trellis.size">medium</option>
-      </chart>
-    </panel>
-    <panel>
-      <title>Top 10 Apps by View</title>
-      <chart>
-        <title>Queries internal access logs for apps by view.</title>
-        <search>
-          <query>index="_internal" user!="-" sourcetype=splunkd_ui_access "en-US/app" 
-| rex field=uri_path "en-US/app/(?&lt;app&gt;[^/]+)/(?&lt;dashboard&gt;[^?/\s]+)" 
-| search dashboard!="job_management" dashboard!="dbinfo" dashboard!="*en-us" dashboard!="search" dashboard!="home" dashboard!="alerts" dashboard!="dashboards" dashboard!="reports" dashboard!="report"
-| chart count over app by dashboard
+        <search base="dashboardAdoption_baseSearch">
+          <query>| chart count over app by $top10Apps_splitBy$
 | addtotals  fieldname=temp_sort
 | sort - temp_sort
 | head 10
 | fields - temp_sort</query>
-          <earliest>$dashboardAdoption_timepicker.earliest$</earliest>
-          <latest>$dashboardAdoption_timepicker.latest$</latest>
-          <sampleRatio>1</sampleRatio>
         </search>
         <option name="charting.axisLabelsX.majorLabelStyle.overflowMode">ellipsisNone</option>
         <option name="charting.axisLabelsX.majorLabelStyle.rotation">0</option>
@@ -307,9 +313,59 @@
         <option name="trellis.splitBy">app</option>
       </chart>
     </panel>
+    <panel>
+      <title>Top 10 Users</title>
+      <input type="link" token="top10user_splitBy" searchWhenChanged="true">
+        <label>Split By</label>
+        <choice value="dashboard">dashboard</choice>
+        <choice value="app">app</choice>
+        <default>dashboard</default>
+      </input>
+      <chart>
+        <search base="dashboardAdoption_baseSearch">
+          <query>| chart count as views over user by $top10user_splitBy$
+| addtotals fieldname=temp_sort 
+| sort - temp_sort 
+| head 10 
+| fields - temp_sort</query>
+        </search>
+        <option name="charting.axisLabelsX.majorLabelStyle.overflowMode">ellipsisNone</option>
+        <option name="charting.axisLabelsX.majorLabelStyle.rotation">0</option>
+        <option name="charting.axisTitleX.visibility">collapsed</option>
+        <option name="charting.axisTitleY.visibility">collapsed</option>
+        <option name="charting.axisTitleY2.visibility">visible</option>
+        <option name="charting.axisX.abbreviation">none</option>
+        <option name="charting.axisX.scale">linear</option>
+        <option name="charting.axisY.abbreviation">none</option>
+        <option name="charting.axisY.scale">linear</option>
+        <option name="charting.axisY2.abbreviation">none</option>
+        <option name="charting.axisY2.enabled">0</option>
+        <option name="charting.axisY2.scale">inherit</option>
+        <option name="charting.chart">bar</option>
+        <option name="charting.chart.bubbleMaximumSize">50</option>
+        <option name="charting.chart.bubbleMinimumSize">10</option>
+        <option name="charting.chart.bubbleSizeBy">area</option>
+        <option name="charting.chart.nullValueMode">gaps</option>
+        <option name="charting.chart.showDataLabels">none</option>
+        <option name="charting.chart.sliceCollapsingThreshold">0.01</option>
+        <option name="charting.chart.stackMode">stacked</option>
+        <option name="charting.chart.style">shiny</option>
+        <option name="charting.drilldown">none</option>
+        <option name="charting.layout.splitSeries">0</option>
+        <option name="charting.layout.splitSeries.allowIndependentYRanges">0</option>
+        <option name="charting.legend.labelStyle.overflowMode">ellipsisMiddle</option>
+        <option name="charting.legend.mode">standard</option>
+        <option name="charting.legend.placement">right</option>
+        <option name="charting.lineWidth">2</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="trellis.enabled">0</option>
+        <option name="trellis.scales.shared">1</option>
+        <option name="trellis.size">medium</option>
+      </chart>
+    </panel>
   </row>
   <row>
-    <panel>
+    <panel id="html_header4">
       <html>
         <h1 align="center">Modifications</h1>
         <p align="center">Create, delete, update, and edit actions on view objects.</p>
@@ -356,7 +412,7 @@
         <option name="charting.layout.splitSeries.allowIndependentYRanges">0</option>
         <option name="charting.legend.labelStyle.overflowMode">ellipsisMiddle</option>
         <option name="charting.legend.mode">standard</option>
-        <option name="charting.legend.placement">bottom</option>
+        <option name="charting.legend.placement">none</option>
         <option name="charting.lineWidth">2</option>
         <option name="refresh.display">progressbar</option>
         <option name="trellis.enabled">0</option>
@@ -411,94 +467,6 @@
         <option name="trellis.scales.shared">1</option>
         <option name="trellis.size">medium</option>
       </chart>
-    </panel>
-  </row>
-  <row>
-    <panel>
-      <html>
-        <h1 align="center">View / App Details</h1>
-        <p align="center">Properties of apps and views queried from the REST API.</p>
-      </html>
-    </panel>
-  </row>
-  <row>
-    <panel>
-      <input type="multiselect" token="field1">
-        <label>field1</label>
-      </input>
-      <table>
-        <title>Queries REST API for properties of all apps.</title>
-        <search>
-          <query>| rest splunk_server=local /services/apps/local
-| fields label title description details updated eai:acl.perms.write eai:acl.perms.read show_in_nav author
-| rename eai:acl.perms.write as writeAccess, eai:acl.perms.read as readAccess
-| sort - updated</query>
-          <earliest>-60m@m</earliest>
-          <latest>now</latest>
-          <sampleRatio>1</sampleRatio>
-        </search>
-        <option name="count">10</option>
-        <option name="dataOverlayMode">none</option>
-        <option name="drilldown">none</option>
-        <option name="percentagesRow">false</option>
-        <option name="refresh.display">progressbar</option>
-        <option name="rowNumbers">false</option>
-        <option name="totalsRow">false</option>
-        <option name="wrap">true</option>
-        <format type="color" field="label">
-          <colorPalette type="sharedList"></colorPalette>
-          <scale type="sharedCategory"></scale>
-        </format>
-      </table>
-    </panel>
-  </row>
-  <row>
-    <panel>
-      <table>
-        <title>Queries REST API for properties of all views.</title>
-        <search>
-          <query>| rest /servicesNS/-/-/data/ui/views
-| rename title as dashboard
-| rename eai:acl.app as app
-| table  app dashboard label description rootNode updated eai:acl.sharing eai:userName author eai:acl.owner disabled isVisible
-| sort - updated</query>
-          <earliest>-24h@h</earliest>
-          <latest>now</latest>
-          <sampleRatio>1</sampleRatio>
-        </search>
-        <option name="count">10</option>
-        <option name="dataOverlayMode">none</option>
-        <option name="drilldown">none</option>
-        <option name="percentagesRow">false</option>
-        <option name="rowNumbers">false</option>
-        <option name="totalsRow">false</option>
-        <option name="wrap">true</option>
-        <format type="color" field="eai:acl.app">
-          <colorPalette type="sharedList"></colorPalette>
-          <scale type="sharedCategory"></scale>
-        </format>
-        <format type="color" field="disabled">
-          <colorPalette type="map">{"0":#53A051,"1":#DC4E41}</colorPalette>
-        </format>
-        <format type="color" field="app">
-          <colorPalette type="sharedList"></colorPalette>
-          <scale type="sharedCategory"></scale>
-        </format>
-        <format type="color" field="isVisible">
-          <colorPalette type="map">{"0":#DC4E41,"1":#53A051}</colorPalette>
-        </format>
-        <format type="color" field="rootNode">
-          <colorPalette type="sharedList"></colorPalette>
-          <scale type="sharedCategory"></scale>
-        </format>
-        <format type="color" field="eai:acl.sharing">
-          <colorPalette type="map">{"global":#53A051,"app":#F8BE34,"user":#DC4E41}</colorPalette>
-        </format>
-        <format type="color" field="label">
-          <colorPalette type="sharedList"></colorPalette>
-          <scale type="sharedCategory"></scale>
-        </format>
-      </table>
     </panel>
   </row>
 </form>
