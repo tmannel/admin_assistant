@@ -1,0 +1,357 @@
+<form stylesheet="admin_assistant_stylesheet.css">
+  <label>Search Explorer</label>
+  <description>Audit all searches.</description>
+  <!-- Base Search -->
+  <search id="searchExplorer_baseSearch">
+    <query>
+      index=_audit source=audittrail sourcetype=audittrail action=search exec_time!="" $search_infoToken$ $search_userToken$
+      | fields _time user roles info savedsearch_name total_run_time search_type search exec_time api_lt api_et event_count drop_count searched_buckets
+      | eval type=if(savedsearch_name="","ad-hoc","saved")
+      | eval roles=rtrim(ltrim(roles, "'"),"'")
+      | eval search=rtrim(ltrim(search, "'search "),"'")
+      | eval range_sec=api_lt-api_et
+      | eval range=case(range_sec &lt; 3600, round(range_sec / 60) . " min",
+          range_sec &lt; 86400, round(range_sec / 3600, 1) . " hrs",
+          range_sec &lt; 31536000, round(range_sec / 86400, 1) . " days",
+          range_sec &gt;=31536000, round(range_sec / 31536000, 1) . " yrs")
+      | foreach api_* exec_time
+          [ eval &lt;&lt;FIELD&gt;&gt;=strftime(&lt;&lt;FIELD&gt;&gt;, "%Y-%m-%d %H:%M:%S")] 
+      | rename api_et as "Range (earliest)", api_lt as "Range (latest)"
+      | makemv roles delim=+
+      | eval number_roles=mvcount(roles)
+      | search $roleToken$ $typeFilter$
+    </query>
+    <earliest>$search_timepicker.earliest$</earliest>
+    <latest>$search_timepicker.latest$</latest>
+  </search>
+  <!-- Form Inputs -->
+  <!-- Panels Begin -->
+  <fieldset submitButton="true" autoRun="true">
+    <input type="time" token="search_timepicker">
+      <label>Time Range</label>
+      <default>
+        <earliest>-60m@m</earliest>
+        <latest>now</latest>
+      </default>
+    </input>
+    <input type="multiselect" token="search_infoToken">
+      <label>Info</label>
+      <choice value="*">All</choice>
+      <choice value="completed">completed</choice>
+      <choice value="cancel*">canceled</choice>
+      <choice value="failed">failed</choice>
+      <choice value="pause">pause</choice>
+      <choice value="granted">granted</choice>
+      <prefix>(</prefix>
+      <suffix>)</suffix>
+      <valuePrefix>info=</valuePrefix>
+      <delimiter> OR </delimiter>
+      <initialValue>*</initialValue>
+    </input>
+    <input type="multiselect" token="roleToken">
+      <label>Role Invoked</label>
+      <choice value="*">All</choice>
+      <prefix>(</prefix>
+      <suffix>)</suffix>
+      <valuePrefix>roles=</valuePrefix>
+      <delimiter> OR </delimiter>
+      <fieldForLabel>title</fieldForLabel>
+      <fieldForValue>title</fieldForValue>
+      <search>
+        <query>|  rest services/authorization/roles
+| fields title
+| dedup title</query>
+        <earliest>-24h@h</earliest>
+        <latest>now</latest>
+      </search>
+      <initialValue>*</initialValue>
+    </input>
+    <input type="multiselect" token="search_userToken">
+      <label>Users</label>
+      <choice value="* NOT user=splunk-system-user">All User Accounts</choice>
+      <choice value="*">All</choice>
+      <choice value="splunk-system-user">splunk-system-user</choice>
+      <prefix>(</prefix>
+      <suffix>)</suffix>
+      <valuePrefix>user=</valuePrefix>
+      <delimiter> OR </delimiter>
+      <fieldForLabel>title</fieldForLabel>
+      <fieldForValue>title</fieldForValue>
+      <search>
+        <query>| rest splunk_server=local services/authentication/users</query>
+        <earliest>-24h@h</earliest>
+        <latest>now</latest>
+      </search>
+      <initialValue>* NOT user=splunk-system-user</initialValue>
+    </input>
+    <input type="multiselect" token="typeFilter">
+      <label>Type</label>
+      <choice value="ad-hoc">ad-hoc</choice>
+      <choice value="saved">saved</choice>
+      <default>ad-hoc,saved</default>
+      <prefix>(</prefix>
+      <suffix>)</suffix>
+      <valuePrefix>type=</valuePrefix>
+      <delimiter> OR </delimiter>
+    </input>
+  </fieldset>
+  <row>
+    <panel id="html_header1">
+      <html>
+        <h1 align="center">Search Overview</h1>
+      </html>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <title>Search Overview</title>
+      <table>
+        <search base="searchExplorer_baseSearch">
+          <query>| stats count as "Total Searches" dc(user) as "Distinct Users" dc(savedsearch_name) as "Distinct Saved Searches" dc(search) as "Distinct Searches"
+| transpose
+| rename column as metric, "row 1" as value</query>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+        <format type="color" field="column">
+          <colorPalette type="sharedList"></colorPalette>
+          <scale type="sharedCategory"></scale>
+        </format>
+        <format type="number" field="Distinct Searches">
+          <option name="precision">0</option>
+        </format>
+        <format type="number" field="Distinct Saved Searches">
+          <option name="precision">0</option>
+        </format>
+        <format type="number" field="Distinct Users">
+          <option name="precision">0</option>
+        </format>
+        <format type="number" field="count">
+          <option name="precision">0</option>
+        </format>
+        <format type="color" field="metric">
+          <colorPalette type="sharedList"></colorPalette>
+          <scale type="sharedCategory"></scale>
+        </format>
+      </table>
+    </panel>
+    <panel>
+      <title>Search Performance</title>
+      <table>
+        <search base="searchExplorer_baseSearch">
+          <query>| stats max(total_run_time) as "Longest Search Runtime" perc90(total_run_time) as "Perc90 Search Runtime" avg(total_run_time) as "Average Search Runtime" median(total_run_time) as "Median Search Runtime"
+| transpose
+| rename column as "Search Metric", "row 1" as value</query>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+        <format type="number" field="Distinct Searches">
+          <option name="precision">0</option>
+        </format>
+        <format type="number" field="Distinct Saved Searches">
+          <option name="precision">0</option>
+        </format>
+        <format type="number" field="Distinct Users">
+          <option name="precision">0</option>
+        </format>
+        <format type="number" field="count">
+          <option name="precision">0</option>
+        </format>
+        <format type="color" field="metric">
+          <colorPalette type="sharedList"></colorPalette>
+          <scale type="sharedCategory"></scale>
+        </format>
+        <format type="number" field="Average Search Runtime">
+          <option name="precision">1</option>
+          <option name="unit">s</option>
+        </format>
+        <format type="number" field="Perc90 Search Runtime">
+          <option name="precision">0</option>
+          <option name="unit">s</option>
+        </format>
+        <format type="number" field="Longest Search Runtime">
+          <option name="precision">0</option>
+          <option name="unit">s</option>
+        </format>
+        <format type="number" field="Median Search Runtime">
+          <option name="precision">0</option>
+          <option name="unit">s</option>
+        </format>
+        <format type="number" field="value">
+          <option name="precision">1</option>
+          <option name="unit">s</option>
+        </format>
+      </table>
+    </panel>
+    <panel>
+      <title>Role Invocation</title>
+      <table>
+        <search base="searchExplorer_baseSearch">
+          <query>| eval number_roles_invoked=mvcount(roles) 
+| stats max(number_roles_invoked) as "Max Roles Invoked" perc90(number_roles_invoked) as "Perc90 Roles Invoked" avg(number_roles_invoked) as "Avg Roles Invoked" median(number_roles_invoked) as "Median Roles Invoked" 
+| transpose 
+| rename column as "Search Metric", "row 1" as value</query>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+        <format type="number" field="Distinct Searches">
+          <option name="precision">0</option>
+        </format>
+        <format type="number" field="Distinct Saved Searches">
+          <option name="precision">0</option>
+        </format>
+        <format type="number" field="Distinct Users">
+          <option name="precision">0</option>
+        </format>
+        <format type="number" field="count">
+          <option name="precision">0</option>
+        </format>
+        <format type="color" field="metric">
+          <colorPalette type="sharedList"></colorPalette>
+          <scale type="sharedCategory"></scale>
+        </format>
+        <format type="number" field="Average Search Runtime">
+          <option name="precision">1</option>
+          <option name="unit">s</option>
+        </format>
+        <format type="number" field="Perc90 Search Runtime">
+          <option name="precision">0</option>
+          <option name="unit">s</option>
+        </format>
+        <format type="number" field="Longest Search Runtime">
+          <option name="precision">0</option>
+          <option name="unit">s</option>
+        </format>
+        <format type="number" field="Median Search Runtime">
+          <option name="precision">0</option>
+          <option name="unit">s</option>
+        </format>
+        <format type="number" field="value">
+          <option name="precision">1</option>
+          <option name="unit">roles</option>
+        </format>
+        <format type="number" field="row 1">
+          <option name="precision">1</option>
+          <option name="unit">roles</option>
+        </format>
+      </table>
+    </panel>
+  </row>
+  <row>
+    <panel id="html_header2">
+      <html>
+        <h1 align="center">Searches Over Time</h1>
+      </html>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <title>Search Overview</title>
+      <chart>
+        <title>Based on time range selected.</title>
+        <search base="searchExplorer_baseSearch">
+          <query>| timechart count as "Total Searches" dc(user) as "Distinct Users" dc(savedsearch_name) as "Distinct Saved Searches" dc(search) as "Distinct Searches"</query>
+        </search>
+        <option name="charting.axisLabelsX.majorLabelStyle.rotation">-45</option>
+        <option name="charting.axisTitleX.visibility">collapsed</option>
+        <option name="charting.axisTitleY.visibility">collapsed</option>
+        <option name="charting.chart">column</option>
+        <option name="charting.chart.showDataLabels">all</option>
+        <option name="charting.drilldown">none</option>
+        <option name="charting.layout.splitSeries">1</option>
+        <option name="charting.layout.splitSeries.allowIndependentYRanges">1</option>
+        <option name="charting.legend.placement">top</option>
+        <option name="refresh.display">progressbar</option>
+      </chart>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <input type="link" token="splitby_token" searchWhenChanged="true">
+        <label>Split By</label>
+        <choice value="info">info</choice>
+        <choice value="user">user</choice>
+        <choice value="type">type</choice>
+        <default>info</default>
+      </input>
+      <chart>
+        <search base="searchExplorer_baseSearch">
+          <query>| timechart count by $splitby_token$</query>
+        </search>
+        <option name="charting.axisLabelsX.majorLabelStyle.rotation">-45</option>
+        <option name="charting.axisTitleX.visibility">collapsed</option>
+        <option name="charting.axisTitleY.visibility">collapsed</option>
+        <option name="charting.chart">column</option>
+        <option name="charting.chart.showDataLabels">none</option>
+        <option name="charting.chart.stackMode">stacked</option>
+        <option name="charting.drilldown">all</option>
+        <option name="charting.layout.splitSeries">0</option>
+        <option name="charting.legend.placement">bottom</option>
+        <option name="refresh.display">progressbar</option>
+      </chart>
+    </panel>
+  </row>
+  <row>
+    <panel id="html_header3">
+      <html>
+        <h1 align="center">Search Details</h1>
+      </html>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <table>
+        <search base="searchExplorer_baseSearch">
+          <query>| eval _time=strftime(_time, "%Y-%m-%d %H:%M:%S")
+| table _time exec_time user roles info savedsearch_name type search "Range (earliest)" "Range (latest)" range_sec range event_count drop_count searched_buckets total_run_time
+| sort - _time</query>
+        </search>
+        <option name="count">10</option>
+        <option name="dataOverlayMode">none</option>
+        <option name="drilldown">row</option>
+        <option name="percentagesRow">false</option>
+        <option name="rowNumbers">false</option>
+        <option name="totalsRow">false</option>
+        <option name="wrap">true</option>
+        <format type="color" field="total_run_time">
+          <colorPalette type="minMidMax" maxColor="#DC4E41" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="0"></scale>
+        </format>
+        <format type="color" field="info">
+          <colorPalette type="map">{"completed":#53A051,"canceled":#F8BE34,"failed":#DC4E41,"cancel":#F8BE34,"granted":#006400}</colorPalette>
+        </format>
+        <format type="color" field="drop_count">
+          <colorPalette type="minMidMax" maxColor="#DC4E41" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="0"></scale>
+        </format>
+        <format type="color" field="event_count">
+          <colorPalette type="minMidMax" maxColor="#5A4575" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="0"></scale>
+        </format>
+        <format type="color" field="searched_buckets">
+          <colorPalette type="minMidMax" maxColor="#006D9C" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="0"></scale>
+        </format>
+        <format type="color" field="user">
+          <colorPalette type="sharedList"></colorPalette>
+          <scale type="sharedCategory"></scale>
+        </format>
+        <format type="number" field="event_count">
+          <option name="precision">0</option>
+        </format>
+        <format type="number" field="range_sec">
+          <option name="precision">0</option>
+          <option name="unit">s</option>
+        </format>
+        <format type="color" field="range_sec">
+          <colorPalette type="minMidMax" maxColor="#62B3B2" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="0"></scale>
+        </format>
+        <format type="color" field="type">
+          <colorPalette type="sharedList"></colorPalette>
+          <scale type="sharedCategory"></scale>
+        </format>
+      </table>
+    </panel>
+  </row>
+</form>
