@@ -4,12 +4,10 @@
   <!-- Header Row -->
   <fieldset submitButton="false" autoRun="true"></fieldset>
   <row>
-    <panel>
+    <panel id="html_header1">
       <html>
-          <div class="expand-html-margins">
             <h1 align="center">Deployment Configuration</h1>
             <p align="center">View configured roles and ensure internal logs are forwarded to indexers.</p>
-          </div>
         </html>
     </panel>
   </row>
@@ -21,13 +19,14 @@
           <query>| rest services/server/info 
 | mvexpand server_roles 
 | eval sort_field=case(server_roles="shc_captin",1, server_roles="cluster_search_head",2, server_roles="search_head",3, server_roles="kv_store",4, server_roles="search_peer",5, server_roles="indexer",6, server_roles="cluster_slave",7), temp=1
-| table server_roles serverName sort_field temp
+| table serverName server_roles sort_field temp
 | sort sort_field serverName 
 | fields - sort_field</query>
           <earliest>-24h@h</earliest>
           <latest>now</latest>
         </search>
         <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
       </viz>
     </panel>
     <panel>
@@ -39,7 +38,7 @@
           <latest>now</latest>
         </default>
       </input>
-      <viz type="parallel_coordinates_app.parallel_coordinates">
+      <viz type="sankey_diagram_app.sankey_diagram">
         <title>Internal Log Flow</title>
         <search>
           <query>| tstats summariesonly=t prestats=t count where index=_internal by host, splunk_server
@@ -49,6 +48,17 @@
         </search>
         <option name="drilldown">none</option>
         <option name="refresh.display">progressbar</option>
+        <option name="sankey_diagram_app.sankey_diagram.colorMode">categorical</option>
+        <option name="sankey_diagram_app.sankey_diagram.maxColor">#3fc77a</option>
+        <option name="sankey_diagram_app.sankey_diagram.minColor">#d93f3c</option>
+        <option name="sankey_diagram_app.sankey_diagram.numOfBins">6</option>
+        <option name="sankey_diagram_app.sankey_diagram.showBackwards">false</option>
+        <option name="sankey_diagram_app.sankey_diagram.showLabels">true</option>
+        <option name="sankey_diagram_app.sankey_diagram.showLegend">true</option>
+        <option name="sankey_diagram_app.sankey_diagram.showSelf">false</option>
+        <option name="sankey_diagram_app.sankey_diagram.showTooltip">true</option>
+        <option name="sankey_diagram_app.sankey_diagram.styleBackwards">false</option>
+        <option name="sankey_diagram_app.sankey_diagram.useColors">true</option>
       </viz>
     </panel>
   </row>
@@ -66,12 +76,15 @@
         <search>
           <query>| rest services/server/info
 | eval startup_time=strftime(startup_time, "%Y-%m-%d %H:%M:%S")
-| fields health_info host splunk_server serverName server_roles product_type version activeLicenseGroup activeLicenseSubGroup licenseState os_name os_version cpu_arch numberOfCores physicalMemoryMB fips_mode kvStoreStatus</query>
+| fields health_info host splunk_server serverName server_roles product_type version activeLicense* licenseState os* cpu_arch numberOfCores physicalMemoryMB fips_mode kvStoreStatus</query>
           <earliest>-24h@h</earliest>
           <latest>now</latest>
         </search>
         <option name="drilldown">none</option>
         <option name="refresh.display">progressbar</option>
+        <format type="color" field="health_info">
+          <colorPalette type="map">{"green":#53A051}</colorPalette>
+        </format>
       </table>
     </panel>
   </row>
