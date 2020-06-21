@@ -1,0 +1,27 @@
+/* Give a little margin to separate sections. */
+#html_header2, #html_header3, #html_header4 {
+    margin-top: 25px !important;
+}
+
+/* This puts a nice gray bar that links the header and subsequent panels. Looks good. */
+#html_header1, #html_header2, #html_header3, #html_header4 {
+    background-color: lightgray;
+}
+
+/* IDs to apply fixed widths to panels. */
+#customWidth_10 {
+    width: 10% !important ;
+}
+
+#customWidth_25 {
+    width: 25% !important;
+}
+
+
+#customWidth_75 {
+    width: 75% !important;
+}
+
+#customWidth_90 {
+    width: 90% !important;
+}
