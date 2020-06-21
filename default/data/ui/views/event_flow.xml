@@ -1,31 +1,46 @@
 <form theme="light">
   <label>Event Flow</label>
   <description>Explore data in event indexes. All inputs require  the SUBMIT button.</description>
+  <search id="eventFlow_baseSearch">
+    <query>
+      | tstats prestats=t summariesonly=t count where $indexToken$ by _time index sourcetype host source splunk_server
+      | fields _time index sourcetype host source splunk_server
+      | search $sourcetypeToken$ AND $hostToken$ AND $splunk_serverToken$
+    </query>
+    <earliest>$eventFlow_timepicker.earliest$</earliest>
+    <latest>$eventFlow_timepicker.latest$</latest>
+  </search>
   <fieldset submitButton="true" autoRun="true">
-    <input type="time" token="dataLoss_timepicker">
+    <input type="time" token="eventFlow_timepicker">
       <label>Time Range</label>
       <default>
-        <earliest>-60m@m</earliest>
+        <earliest>@d</earliest>
         <latest>now</latest>
       </default>
     </input>
-    <input type="dropdown" token="indexToken">
+    <input type="multiselect" token="indexToken">
       <label>Filter by Index</label>
-      <choice value="*">All</choice>
+      <choice value="* OR index=&quot;_*&quot;">All</choice>
+      <choice value="* NOT index=&quot;_*&quot;">All non-internal</choice>
+      <choice value="&quot;_*&quot;">All internal</choice>
+      <prefix>(</prefix>
+      <suffix>)</suffix>
+      <valuePrefix>index=</valuePrefix>
+      <delimiter> OR </delimiter>
       <fieldForLabel>title</fieldForLabel>
       <fieldForValue>title</fieldForValue>
       <search>
-        <query>|  rest services/data/indexes</query>
+        <query>|  rest services/data/indexes
+| fields title
+| dedup title</query>
         <earliest>-24h@h</earliest>
         <latest>now</latest>
       </search>
-      <prefix>index=</prefix>
-      <default>*</default>
+      <initialValue>* NOT index="_*"</initialValue>
     </input>
     <input type="multiselect" token="sourcetypeToken">
       <label>Filter by Sourcetype</label>
       <choice value="*">All</choice>
-      <default>*</default>
       <fieldForLabel>sourcetype</fieldForLabel>
       <fieldForValue>sourcetype</fieldForValue>
       <search>
@@ -38,6 +53,7 @@
       <suffix>)</suffix>
       <valuePrefix>sourcetype=</valuePrefix>
       <delimiter> OR </delimiter>
+      <initialValue>*</initialValue>
     </input>
     <input type="text" token="hostToken">
       <label>Filter by Host</label>
@@ -55,14 +71,10 @@
       <title>Distinct Values and Total Events</title>
       <table>
         <title>total during selected time range</title>
-        <search>
-          <query>| tstats summariesonly=t count where index=* by index sourcetype host source splunk_server
-| search $indexToken$ AND $sourcetypeToken$ AND $hostToken$ AND $splunk_serverToken$
-| rename count as COUNT
-| stats  dc(index) as "Indexes Seen" dc(sourcetype) as "Sourcetypes Seen" dc(host) as "Hosts Seen" dc(source) as "Sources Seen" dc(splunk_server) as "Indexers with Buckets" sum(COUNT) as "Total Events"</query>
-          <earliest>$dataLoss_timepicker.earliest$</earliest>
-          <latest>$dataLoss_timepicker.latest$</latest>
-          <sampleRatio>1</sampleRatio>
+        <search base="eventFlow_baseSearch">
+          <query>| stats  dc(index) as "Indexes Seen" dc(sourcetype) as "Sourcetypes Seen" dc(host) as "Hosts Seen" dc(source) as "Sources Seen" dc(splunk_server) as "Indexers with Buckets" count as "Total Events"
+| transpose
+| rename column as Metric, "row 1" as count</query>
         </search>
         <option name="count">20</option>
         <option name="dataOverlayMode">none</option>
@@ -75,20 +87,41 @@
         <format type="number" field="Total Events">
           <option name="precision">0</option>
         </format>
+        <format type="color" field="Metric">
+          <colorPalette type="sharedList"></colorPalette>
+          <scale type="sharedCategory"></scale>
+        </format>
+        <format type="number" field="count">
+          <option name="precision">0</option>
+        </format>
       </table>
+    </panel>
+    <panel>
+      <title>Count by Indexer</title>
+      <chart>
+        <search base="eventFlow_baseSearch">
+          <query>| stats count by splunk_server</query>
+        </search>
+        <option name="charting.axisTitleX.visibility">visible</option>
+        <option name="charting.axisTitleY.visibility">visible</option>
+        <option name="charting.axisTitleY2.visibility">visible</option>
+        <option name="charting.chart">pie</option>
+        <option name="charting.chart.rangeValues">[0,30,70,100]</option>
+        <option name="charting.chart.style">minimal</option>
+        <option name="charting.drilldown">all</option>
+        <option name="charting.gaugeColors">["0x53a051","0xf8be34","0xdc4e41"]</option>
+        <option name="charting.legend.placement">right</option>
+        <option name="refresh.display">progressbar</option>
+      </chart>
     </panel>
   </row>
   <row>
     <panel>
       <chart>
         <title>over time</title>
-        <search>
-          <query>| tstats summariesonly=t count where index=* by _time index sourcetype host source splunk_server
-| search $indexToken$ AND $sourcetypeToken$ AND $hostToken$ AND $splunk_serverToken$
-| timechart  dc(index) as "Indexes Seen" dc(sourcetype) as "Sourcetypes Seen" dc(host) as "Hosts Seen" dc(source) as "Sources Seen" dc(splunk_server) as "Indexers with Buckets" count as "Total Events"</query>
-          <earliest>$dataLoss_timepicker.earliest$</earliest>
-          <latest>$dataLoss_timepicker.latest$</latest>
-          <sampleRatio>1</sampleRatio>
+        <search base="eventFlow_baseSearch">
+          <query>
+          | timechart  dc(index) as "Indexes Seen" dc(sourcetype) as "Sourcetypes Seen" dc(host) as "Hosts Seen" dc(source) as "Sources Seen" dc(splunk_server) as "Indexers with Buckets" COUNT as "Total Events"</query>
         </search>
         <option name="charting.axisLabelsX.majorLabelStyle.overflowMode">ellipsisNone</option>
         <option name="charting.axisLabelsX.majorLabelStyle.rotation">-45</option>
@@ -134,17 +167,14 @@
         <choice value="sourcetype">sourcetype</choice>
         <choice value="host">host</choice>
         <choice value="source">source</choice>
+        <choice value="splunk_server">indexer</choice>
         <default>index</default>
       </input>
       <chart>
         <title>split events over time</title>
-        <search>
-          <query>| tstats summariesonly=t count where index=* by index, sourcetype, host, source, splunk_server, _time
-| search $indexToken$ AND $sourcetypeToken$ AND $hostToken$ AND $splunk_serverToken$
+        <search base="eventFlow_baseSearch">
+          <query>| eval index=ltrim(index, "VALUE")
 | timechart count by $splitBy_OverTime$</query>
-          <earliest>$dataLoss_timepicker.earliest$</earliest>
-          <latest>$dataLoss_timepicker.latest$</latest>
-          <sampleRatio>1</sampleRatio>
         </search>
         <option name="charting.axisLabelsX.majorLabelStyle.overflowMode">ellipsisNone</option>
         <option name="charting.axisLabelsX.majorLabelStyle.rotation">-45</option>
@@ -164,54 +194,6 @@
         <option name="charting.chart.bubbleSizeBy">area</option>
         <option name="charting.chart.nullValueMode">gaps</option>
         <option name="charting.chart.overlayFields">"dc(host): *"</option>
-        <option name="charting.chart.showDataLabels">none</option>
-        <option name="charting.chart.sliceCollapsingThreshold">0.01</option>
-        <option name="charting.chart.stackMode">stacked</option>
-        <option name="charting.chart.style">shiny</option>
-        <option name="charting.drilldown">none</option>
-        <option name="charting.layout.splitSeries">0</option>
-        <option name="charting.layout.splitSeries.allowIndependentYRanges">0</option>
-        <option name="charting.legend.labelStyle.overflowMode">ellipsisMiddle</option>
-        <option name="charting.legend.mode">standard</option>
-        <option name="charting.legend.placement">left</option>
-        <option name="charting.lineWidth">2</option>
-        <option name="refresh.display">progressbar</option>
-        <option name="trellis.enabled">0</option>
-        <option name="trellis.scales.shared">1</option>
-        <option name="trellis.size">medium</option>
-      </chart>
-    </panel>
-  </row>
-  <row>
-    <panel>
-      <chart>
-        <title>split thruput over time</title>
-        <search>
-          <query>index=_internal sourcetype=splunkd source=*metrics.log group=per_$splitBy_OverTime$_thruput series!="_*"
-| fields _time kb series
-| timechart usenull=f sum(kb) by series</query>
-          <earliest>$dataLoss_timepicker.earliest$</earliest>
-          <latest>$dataLoss_timepicker.latest$</latest>
-          <sampleRatio>1</sampleRatio>
-        </search>
-        <option name="charting.axisLabelsX.majorLabelStyle.overflowMode">ellipsisNone</option>
-        <option name="charting.axisLabelsX.majorLabelStyle.rotation">-45</option>
-        <option name="charting.axisTitleX.visibility">collapsed</option>
-        <option name="charting.axisTitleY.text">Sum (kb)</option>
-        <option name="charting.axisTitleY.visibility">visible</option>
-        <option name="charting.axisTitleY2.visibility">visible</option>
-        <option name="charting.axisX.abbreviation">none</option>
-        <option name="charting.axisX.scale">linear</option>
-        <option name="charting.axisY.abbreviation">none</option>
-        <option name="charting.axisY.scale">linear</option>
-        <option name="charting.axisY2.abbreviation">none</option>
-        <option name="charting.axisY2.enabled">0</option>
-        <option name="charting.axisY2.scale">inherit</option>
-        <option name="charting.chart">area</option>
-        <option name="charting.chart.bubbleMaximumSize">50</option>
-        <option name="charting.chart.bubbleMinimumSize">10</option>
-        <option name="charting.chart.bubbleSizeBy">area</option>
-        <option name="charting.chart.nullValueMode">gaps</option>
         <option name="charting.chart.showDataLabels">none</option>
         <option name="charting.chart.sliceCollapsingThreshold">0.01</option>
         <option name="charting.chart.stackMode">stacked</option>
