@@ -4,7 +4,7 @@
   <!-- Set some tokens for our Panels -->
   <search id="views_in_this_app_baseSearch">
     <query>
-    | rest /servicesNS/-/-/data/ui/views
+    | rest /servicesNS/-/-/data/ui/views splunk_server=local
     | search eai:acl.app=admin_assistant
     | dedup title
     | stats count
