@@ -40,7 +40,7 @@
       <table>
         <title>This information comes from the Splunk REST API.</title>
         <search>
-          <query>|  rest /services/authentication/current-context
+          <query>|  rest /services/authentication/current-context splunk_server=local
 | eval is_admin=if(roles="admin", "y", "n"), rest_properties_get=if(capabilities="rest_properties_get", "y", "n"), list_metrics_catalog=if(capabilities="list_metrics_catalog", "y", "n"), get_metadata=if(capabilities="get_metadata", "y", "n")
 | eval lastLogin=strftime(last_successful_login,"%Y-%m-%d %H:%M")
 | eval timeSinceLastLogin=now()-last_successful_login
@@ -70,12 +70,16 @@
       <title>Searches Used in this App</title>
       <html>
 <p>Splunk searches are typically written with a query returning results, followed by commands. Commands are preceded by a pipe character <code>|</code> as follows:</p>
-<pre><code>index=myindex sourcetype=mysourcetype
+<pre>
+          <code>index=myindex sourcetype=mysourcetype
 | stats count by host
-| sort - count</code></pre>
+| sort - count</code>
+        </pre>
     <p>Some Splunk reporting commands, however, are not preceded by a search query and are invoked directly after a <code>|</code> character in the first line. These commands include but are not limited to <code>tstats</code>, <code>mstats</code>, <code>mcatalog</code>, <code>REST</code>, <code>metadata</code>, <code>dbinspect</code>, <code>fieldsummary</code>, and <code>history</code>. The REST API in particular warrants example:</p>
-<pre><code>| rest splunk_server=local services/authentication/users
-| stats count</code></pre>
+<pre>
+          <code>| rest splunk_server=local services/authentication/users
+| stats count</code>
+        </pre>
 </html>
     </panel>
   </row>
@@ -91,7 +95,7 @@
       <table>
         <title>Like the user context panel above, this comes from the REST API.</title>
         <search>
-          <query>|  rest /services/apps/local/admin_assistant
+          <query>|  rest /services/apps/local/admin_assistant splunk_server=local
 | fields label title author version description eai:acl.perms.read eai:acl.perms.write eai:acl.sharing updated
 | eval value="value"
 | rename eai:acl.perms.* as *_permissions
@@ -123,7 +127,7 @@
       <viz type="sankey_diagram_app.sankey_diagram">
         <title>Forms have inputs like drop-downs and radio buttons, while dashboards do not.</title>
         <search>
-          <query>| rest /servicesNS/-/-/data/ui/views
+          <query>| rest /servicesNS/-/-/data/ui/views splunk_server=local
 | search eai:acl.app=admin_assistant
 | stats count by label rootNode</query>
           <earliest>-60m@m</earliest>
@@ -150,7 +154,7 @@
       <title>View Details</title>
       <table>
         <search>
-          <query>| rest /servicesNS/-/-/data/ui/views
+          <query>| rest /servicesNS/-/-/data/ui/views splunk_server=local
 | search eai:acl.app=admin_assistant
 | fields label description title rootNode author updated
 | sort label</query>
