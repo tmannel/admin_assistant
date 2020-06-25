@@ -31,7 +31,7 @@
       <fieldForLabel>title</fieldForLabel>
       <fieldForValue>title</fieldForValue>
       <search>
-        <query>| rest services/authentication/users
+        <query>| rest services/authentication/users splunk_server=local
 | fields title
 | dedup title</query>
         <earliest>-24h@h</earliest>
@@ -50,13 +50,14 @@
     <panel>
       <title>Dashboard Adoption Metrics</title>
       <table>
-        <title>User Activity for time range selected above.</title>
+        <title>User Activity for entire time range selected above.</title>
         <search base="dashboardAdoption_baseSearch">
-          <query>| stats count as "Total Count" dc(user) as "Distinct Users" dc(app) as "Distinct Apps" dc(dashboard) as "Distinct Dashboards"
+          <query>| stats count as "Total Page Views" dc(user) as "Distinct Users" dc(app) as "Distinct Apps" dc(dashboard) as "Distinct Dashboards"
 | transpose
 | rename column as metric, "row 1" as value</query>
         </search>
         <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
         <format type="color" field="metric">
           <colorPalette type="sharedList"></colorPalette>
           <scale type="sharedCategory"></scale>
@@ -68,7 +69,7 @@
       <table>
         <title>by rootNode</title>
         <search>
-          <query>|  rest services/data/ui/views
+          <query>|  rest services/data/ui/views splunk_server=local
 | dedup title
 | stats count by rootNode
 | sort - count
@@ -77,6 +78,7 @@
           <latest>now</latest>
         </search>
         <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
         <format type="color" field="rootNode">
           <colorPalette type="map">{"total":#294E70}</colorPalette>
         </format>
@@ -91,7 +93,7 @@
       <chart>
         <title>ALL configured dashboards - NOT a count of user views.</title>
         <search>
-          <query>|  rest services/data/ui/views
+          <query>|  rest services/data/ui/views splunk_server=local
 | dedup title
 | stats count by eai:acl.app
 | addcoltotals count labelfield=rootNode label=total</query>
@@ -117,7 +119,7 @@
       <title>Dashboards Adoption Metrics Over Time</title>
       <chart>
         <search base="dashboardAdoption_baseSearch">
-          <query>| timechart count as "Total Count" dc(user) as "Distinct Users" dc(app) as "Distinct Apps" dc(dashboard) as "Distinct Dashboards"</query>
+          <query>| timechart count as "Total Page Views" dc(user) as "Distinct Users" dc(app) as "Distinct Apps" dc(dashboard) as "Distinct Dashboards"</query>
         </search>
         <option name="charting.axisLabelsX.majorLabelStyle.overflowMode">ellipsisMiddle</option>
         <option name="charting.axisLabelsX.majorLabelStyle.rotation">-45</option>
@@ -157,7 +159,7 @@
   </row>
   <row>
     <panel>
-      <title>Apps and Dashboard Use Over Time</title>
+      <title>Apps and Dashboard Page Views Over Time</title>
       <input type="link" token="timechart_splitBy" searchWhenChanged="true">
         <label>Split By</label>
         <choice value="dashboard">dashboard</choice>
