@@ -8,6 +8,7 @@
   <collection label="Data Ingestion" >
     <view name="event_flow" />
     <view name="license_usage" />
+    <view name="data_model_utilization" />
   </collection>
   <collection label="User Adoption" >
     <view name="user_logins" />
