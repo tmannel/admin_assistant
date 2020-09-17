@@ -6,7 +6,12 @@
     <query>
       index="_internal" sourcetype=splunkd_ui_access $dashboardAdoption_userFilter$ "en-US/app" 
       | fields _time user bytes uri_path file sid spent
-      | rex field=uri_path "en-US/app/(?&lt;app&gt;[^/]+)/(?&lt;dashboard&gt;[^?/\s]+)" 
+      | rex field=uri_path "en-US/app/(?&lt;app&gt;[^/]+)/(?&lt;dashboard&gt;[^?/\s]+)"
+      | join user 
+          [ | rest splunk_server=local services/authentication/users
+          | rename title as user
+          | fields user roles]
+          |search $dashboardAdoption_roleFilter$
     </query>
     <earliest>$dashboardAdoption_timepicker.earliest$</earliest>
     <latest>$dashboardAdoption_timepicker.latest$</latest>
@@ -20,6 +25,24 @@
         <earliest>@w0</earliest>
         <latest>now</latest>
       </default>
+    </input>
+    <input type="multiselect" token="dashboardAdoption_roleFilter">
+      <label>Filter by Role</label>
+      <prefix>(</prefix>
+      <suffix>)</suffix>
+      <valuePrefix>roles=</valuePrefix>
+      <delimiter> OR </delimiter>
+      <fieldForLabel>title</fieldForLabel>
+      <fieldForValue>title</fieldForValue>
+      <search>
+        <query>| rest splunk_server=local /services/authorization/roles
+| fields title
+| dedup title</query>
+        <earliest>-24h@h</earliest>
+        <latest>now</latest>
+      </search>
+      <choice value="*">All</choice>
+      <initialValue>*</initialValue>
     </input>
     <input type="multiselect" token="dashboardAdoption_userFilter">
       <label>Filter by User</label>
