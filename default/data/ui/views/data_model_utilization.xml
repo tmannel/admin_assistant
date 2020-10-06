@@ -1,0 +1,130 @@
+<form stylesheet="admin_assistant_stylesheet.css" theme="light">
+  <label>Data Model Utilization</label>
+  <description>Understand your use of data models.</description>
+  <fieldset submitButton="false">
+    <input type="multiselect" token="displayName_token">
+      <label>Filter by Data Model</label>
+      <choice value="*">All</choice>
+      <initialValue>*</initialValue>
+      <delimiter> OR  </delimiter>
+      <prefix>(</prefix>
+      <suffix>)</suffix>
+      <valuePrefix>displayName="</valuePrefix>
+      <fieldForLabel>displayName</fieldForLabel>
+      <fieldForValue>displayName</fieldForValue>
+      <search>
+        <query>| rest /servicesNS/-/-/datamodel/model</query>
+        <earliest>-30d@d</earliest>
+        <latest>now</latest>
+      </search>
+      <valueSuffix>"</valueSuffix>
+    </input>
+    <input type="multiselect" token="app_token">
+      <label>Filter by App</label>
+      <choice value="*">All</choice>
+      <initialValue>*</initialValue>
+      <fieldForLabel>eai:acl.app</fieldForLabel>
+      <fieldForValue>eai:acl.app</fieldForValue>
+      <search>
+        <query>| rest /servicesNS/-/-/datamodel/model
+| fields eai:acl.app
+| dedup eai:acl.app</query>
+        <earliest>-30d@d</earliest>
+        <latest>now</latest>
+      </search>
+      <delimiter> OR  </delimiter>
+      <prefix>(</prefix>
+      <suffix>)</suffix>
+      <valuePrefix>eai:acl.app=</valuePrefix>
+    </input>
+  </fieldset>
+  <row>
+    <panel id="html_header1">
+      <html encoded="1">&lt;h1 align="center"&gt;Data Models Overview&lt;/h1&gt;
+            </html>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <title>Data Models by App</title>
+      <table>
+        <search>
+          <query>| rest splunk_server=local /servicesNS/-/-/datamodel/model
+| search $displayName_token$ $app_token$
+| stats dc(title) as "Distinct Data Models" by eai:acl.app disabled
+| addcoltotals "Distinct Data Models" labelfield=disabled label="total"
+| rename eai:acl.app as app</query>
+          <earliest>$earliest$</earliest>
+          <latest>$latest$</latest>
+        </search>
+        <option name="count">20</option>
+        <option name="dataOverlayMode">none</option>
+        <option name="drilldown">none</option>
+        <option name="percentagesRow">false</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="rowNumbers">false</option>
+        <option name="totalsRow">false</option>
+        <option name="wrap">true</option>
+        <format type="color" field="eai:acl.app">
+          <colorPalette type="sharedList"></colorPalette>
+          <scale type="sharedCategory"></scale>
+        </format>
+        <format type="color" field="Distinct Data Models">
+          <colorPalette type="minMidMax" maxColor="#294E70" midColor="#FFFFFF" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" maxType="percentile" maxValue="100" midType="percentile" midValue="99.99"></scale>
+        </format>
+        <format type="color" field="disabled">
+          <colorPalette type="map">{"total":#294E70}</colorPalette>
+        </format>
+      </table>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <title>Data Model Details</title>
+      <table>
+        <search>
+          <query>| rest splunk_server=local /servicesNS/-/-/datamodel/model 
+| search $displayName_token$ $app_token$
+| fields displayName title eai:acl.app eai:acl.perms.* author acceleration.allowed disabled 
+| rename eai:acl.* as *</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="rowNumbers">true</option>
+        <format type="color" field="acceleration.allowed">
+          <colorPalette type="map">{"0":#53A051,"1":#DC4E41}</colorPalette>
+        </format>
+        <format type="color" field="eai:acl.app">
+          <colorPalette type="sharedList"></colorPalette>
+          <scale type="sharedCategory"></scale>
+        </format>
+        <format type="color" field="displayName">
+          <colorPalette type="sharedList"></colorPalette>
+          <scale type="sharedCategory"></scale>
+        </format>
+        <format type="color" field="disabled">
+          <colorPalette type="map">{"0":#53A051,"1":#DC4E41}</colorPalette>
+        </format>
+        <format type="color" field="app">
+          <colorPalette type="sharedList"></colorPalette>
+          <scale type="sharedCategory"></scale>
+        </format>
+        <format type="color" field="dc_datamodel_constraints">
+          <colorPalette type="minMidMax" maxColor="#5A4575" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="1"></scale>
+        </format>
+        <format type="color" field="dc_fields">
+          <colorPalette type="minMidMax" maxColor="#5A4575" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="1"></scale>
+        </format>
+        <format type="color" field="dc_output_fields">
+          <colorPalette type="minMidMax" maxColor="#5A4575" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="1"></scale>
+        </format>
+      </table>
+    </panel>
+  </row>
+</form>
