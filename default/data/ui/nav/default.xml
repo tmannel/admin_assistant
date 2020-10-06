@@ -19,6 +19,7 @@
   <collection label="Deployment Monitoring">
     <view name="server_overview" />
     <view name="bucket_explorer" />
+    <view name="internal_log_explorer" />
   </collection>
   <view name="search" />
   <collection label="Explore Content">
