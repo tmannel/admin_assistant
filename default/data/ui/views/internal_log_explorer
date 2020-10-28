@@ -43,7 +43,7 @@
       <chart>
         <search>
           <query>index=_internal sourcetype=splunkd $log_level_token$ $event_message_token$
-| timechart span=4h count by $log_timechart_splitby$</query>
+| timechart count by $log_timechart_splitby$</query>
           <earliest>$internalLogs_timepicker.earliest$</earliest>
           <latest>$internalLogs_timepicker.latest$</latest>
           <sampleRatio>1</sampleRatio>
