@@ -8,7 +8,7 @@ Install pre-requisite visualization apps on search heads or search head cluster:
 Install on Splunk search heads. No knowledge objects other than views are required for Admin Assistant.
 
 ## Roadmap
-Introspection on indexers, search heads, heavy forwarders. Top talkers of errors and likely source.
+Introspection on indexers, search heads, heavy forwarders.
 
 ## Author
 Tim Mannel, Splunk Solutions Engineer
