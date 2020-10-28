@@ -97,8 +97,8 @@
           <sampleRatio>1</sampleRatio>
         </search>
         <option name="charting.axisLabelsX.majorLabelStyle.overflowMode">ellipsisNone</option>
-        <option name="charting.axisLabelsX.majorLabelStyle.rotation">0</option>
-        <option name="charting.axisTitleX.visibility">visible</option>
+        <option name="charting.axisLabelsX.majorLabelStyle.rotation">-45</option>
+        <option name="charting.axisTitleX.visibility">collapsed</option>
         <option name="charting.axisTitleY.text">Sum GB</option>
         <option name="charting.axisTitleY.visibility">visible</option>
         <option name="charting.axisTitleY2.visibility">visible</option>
@@ -134,15 +134,20 @@
     <panel>
       <title>License Analysis</title>
       <table>
+        <title>$countResult_licenseAnalysis$ unique index/sourcetype combinations found.</title>
         <search>
-          <query>index=_internal source=*license_usage.log type=Usage
-| fields idx, b, st, s, h, _time
-| rename idx as index, st as sourcetype, s as source, h as host
-| bin _time span=1d
-| stats sum(b) as sum_b dc(host) as host_count by _time, index, sourcetype
-| eval sum_mb=(sum_b/1024/1024), sum_gb=(sum_b/1024/1024/1024)
-| stats sparkline as ingest_trend avg(sum_mb) as "Average Daily MB" avg(sum_gb) as "Average Daily GB" avg(host_count) as "Average Daily Host Count" by index, sourcetype
-| eval "Average MB per Host"='Average Daily MB'/'Average Daily Host Count'
+          <progress>
+            <set token="countResult_licenseAnalysis">$job.resultCount$</set>
+          </progress>
+          <query>index=_internal source=*license_usage.log type=Usage 
+| fields idx, b, st, s, h, _time, splunk_server
+| rename idx as index, st as sourcetype, s as source, h as host 
+| search $indexToken$ $sourcetypeToken$ AND $hostToken$ AND $splunk_serverToken$ 
+| bin _time span=1d 
+| stats sum(b) as sum_b dc(host) as host_count by _time, index, sourcetype 
+| eval sum_mb=(sum_b/1024/1024), sum_gb=(sum_b/1024/1024/1024) 
+| stats avg(sum_mb) as "Average Daily MB" avg(sum_gb) as "Average Daily GB" avg(host_count) as "Average Daily Host Count" by index, sourcetype 
+| eval "Average MB per Host"='Average Daily MB'/'Average Daily Host Count' 
 | sort - "Average Daily MB" - "Average Daily Host Count"</query>
           <earliest>$eventFlow_timepicker.earliest$</earliest>
           <latest>$eventFlow_timepicker.latest$</latest>
@@ -152,7 +157,6 @@
         <option name="dataOverlayMode">none</option>
         <option name="drilldown">none</option>
         <option name="percentagesRow">false</option>
-        <option name="refresh.display">progressbar</option>
         <option name="rowNumbers">true</option>
         <option name="totalsRow">false</option>
         <option name="wrap">true</option>
@@ -211,7 +215,7 @@
         </search>
         <option name="charting.axisLabelsX.majorLabelStyle.overflowMode">ellipsisNone</option>
         <option name="charting.axisLabelsX.majorLabelStyle.rotation">-45</option>
-        <option name="charting.axisTitleX.visibility">visible</option>
+        <option name="charting.axisTitleX.visibility">collapsed</option>
         <option name="charting.axisTitleY.visibility">collapsed</option>
         <option name="charting.axisTitleY2.visibility">visible</option>
         <option name="charting.axisX.abbreviation">none</option>
@@ -372,7 +376,7 @@
         </search>
         <option name="charting.axisLabelsX.majorLabelStyle.overflowMode">ellipsisNone</option>
         <option name="charting.axisLabelsX.majorLabelStyle.rotation">-45</option>
-        <option name="charting.axisTitleX.visibility">visible</option>
+        <option name="charting.axisTitleX.visibility">collapsed</option>
         <option name="charting.axisTitleY.visibility">visible</option>
         <option name="charting.axisTitleY2.visibility">visible</option>
         <option name="charting.axisX.abbreviation">none</option>
