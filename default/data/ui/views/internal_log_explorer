@@ -50,22 +50,23 @@
         </search>
         <!-- Chart colors for log level -->
         <option name="charting.axisLabelsX.majorLabelStyle.overflowMode">ellipsisNone</option>
-        <option name="charting.axisLabelsX.majorLabelStyle.rotation">0</option>
-        <option name="charting.axisTitleX.visibility">visible</option>
+        <option name="charting.axisLabelsX.majorLabelStyle.rotation">-45</option>
+        <option name="charting.axisTitleX.visibility">collapsed</option>
         <option name="charting.axisTitleY.visibility">visible</option>
         <option name="charting.axisTitleY2.visibility">visible</option>
         <option name="charting.axisX.abbreviation">none</option>
         <option name="charting.axisX.scale">linear</option>
         <option name="charting.axisY.abbreviation">auto</option>
         <option name="charting.axisY.scale">linear</option>
-        <option name="charting.axisY2.abbreviation">none</option>
-        <option name="charting.axisY2.enabled">0</option>
+        <option name="charting.axisY2.abbreviation">auto</option>
+        <option name="charting.axisY2.enabled">1</option>
         <option name="charting.axisY2.scale">inherit</option>
         <option name="charting.chart">column</option>
         <option name="charting.chart.bubbleMaximumSize">50</option>
         <option name="charting.chart.bubbleMinimumSize">10</option>
         <option name="charting.chart.bubbleSizeBy">area</option>
         <option name="charting.chart.nullValueMode">gaps</option>
+        <option name="charting.chart.overlayFields">"distinct messages: ERROR","distinct messages: WARN","distinct messages: INFO"</option>
         <option name="charting.chart.showDataLabels">none</option>
         <option name="charting.chart.sliceCollapsingThreshold">0.01</option>
         <option name="charting.chart.stackMode">stacked</option>
@@ -76,18 +77,28 @@
         <option name="charting.layout.splitSeries.allowIndependentYRanges">0</option>
         <option name="charting.legend.labelStyle.overflowMode">ellipsisMiddle</option>
         <option name="charting.legend.mode">standard</option>
-        <option name="charting.legend.placement">bottom</option>
+        <option name="charting.legend.placement">right</option>
         <option name="charting.lineWidth">2</option>
+        <option name="height">523</option>
         <option name="refresh.display">progressbar</option>
         <option name="trellis.enabled">0</option>
         <option name="trellis.scales.shared">1</option>
         <option name="trellis.size">medium</option>
+        <option name="trellis.splitBy">_aggregation</option>
       </chart>
     </panel>
     <panel>
       <title>Recent Logs</title>
       <table>
+        <title>$recentLogs_resultCount$ logs found in time range. Earliest: $recentLogs_earliest$</title>
         <search>
+          <progress>
+            <set token="recentLogs_resultCount">$job.resultCount$</set>
+          </progress>
+          <done>
+            <eval token="recentLogs_earliest">strftime(strptime($job.earliestTime$,"%Y/%m/%d %H:%M:%S %p"),"%Y/%m/%d %H:%M:%S %p")</eval>
+            <eval token="recentLogs_latest">strftime(strptime($job.latestTime$,"%Y/%m/%d %H:%M:%S %p"),"%Y/%m/%d %H:%M:%S %p")</eval>
+          </done>
           <query>index=_internal sourcetype=splunkd $log_level_token$ $event_message_token$
 | table _time log_level component event_message sid
 | sort - _time</query>
@@ -95,10 +106,13 @@
           <latest>$internalLogs_timepicker.latest$</latest>
         </search>
         <option name="drilldown">none</option>
-        <option name="refresh.display">progressbar</option>
         <option name="rowNumbers">true</option>
         <format type="color" field="log_level">
           <colorPalette type="map">{"WARN":#F8BE34,"ERROR":#DC4E41,"INFO":#708794}</colorPalette>
+        </format>
+        <format type="color" field="component">
+          <colorPalette type="sharedList"></colorPalette>
+          <scale type="sharedCategory"></scale>
         </format>
       </table>
     </panel>
@@ -107,7 +121,15 @@
     <panel>
       <title>Top Messages</title>
       <table>
+        <title>$messages_resultCount$ unique messages found.
+Earliest: $messages_earliest$</title>
         <search>
+          <progress>
+            <set token="messages_resultCount">$job.resultCount$</set>
+          </progress>
+          <done>
+            <set token="messages_earliest">$job.earliestTime$</set>
+          </done>
           <query>index=_internal sourcetype=splunkd $log_level_token$ $event_message_token$
 | stats sparkline as trend count by log_level component event_message
 | sort - count</query>
@@ -119,7 +141,6 @@
         <option name="dataOverlayMode">none</option>
         <option name="drilldown">none</option>
         <option name="percentagesRow">false</option>
-        <option name="refresh.display">progressbar</option>
         <option name="rowNumbers">true</option>
         <option name="totalsRow">false</option>
         <option name="wrap">true</option>
@@ -132,6 +153,10 @@
         </format>
         <format type="color" field="log_level">
           <colorPalette type="map">{"INFO":#708794,"WARN":#F8BE34,"ERROR":#DC4E41}</colorPalette>
+        </format>
+        <format type="color" field="component">
+          <colorPalette type="sharedList"></colorPalette>
+          <scale type="sharedCategory"></scale>
         </format>
         <format field="trend" type="sparkline">
           <option name="type">bar</option>
