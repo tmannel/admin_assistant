@@ -1,15 +1,7 @@
 <form theme="light">
   <label>Alert Adoption</label>
   <description>Explore user of alerts over time.</description>
-  <fieldset submitButton="true" autoRun="true">
-    <input type="time" token="alerts_timepicker" searchWhenChanged="true">
-      <label>Time Range</label>
-      <default>
-        <earliest>-7d@h</earliest>
-        <latest>now</latest>
-      </default>
-    </input>
-  </fieldset>
+  <fieldset submitButton="false" autoRun="true"></fieldset>
   <row>
     <panel>
       <html>
@@ -20,37 +12,84 @@
   </row>
   <row>
     <panel>
-      <table>
-        <title>Alerts Fired</title>
+      <title>Fired Alerts</title>
+      <input type="time" token="alerts_timepicker" searchWhenChanged="true">
+        <label>Time Range</label>
+        <default>
+          <earliest>-7d@h</earliest>
+          <latest>now</latest>
+        </default>
+      </input>
+      <chart>
         <search>
-          <query>index=_audit action=alert_fired |rename ss_name AS Alert 
-|stats latest(_time) AS "Last Fired" count AS "Times Fired" sparkline AS "Alerts in the Last 72 Hours" 
-first(sid) AS sid by Alert 
-|convert ctime("Last Fired")</query>
+          <query>index="_internal" sourcetype="scheduler" alert_actions=* NOT alert_actions=""
+| timechart count by savedsearch_name</query>
           <earliest>$alerts_timepicker.earliest$</earliest>
           <latest>$alerts_timepicker.latest$</latest>
         </search>
-        <option name="count">10</option>
-        <option name="dataOverlayMode">heatmap</option>
-        <option name="drilldown">cell</option>
-        <option name="link.inspectSearch.visible">0</option>
-        <option name="link.openSearch.visible">0</option>
+        <option name="charting.chart">column</option>
+        <option name="charting.chart.stackMode">stacked</option>
         <option name="refresh.display">progressbar</option>
-        <option name="rowNumbers">false</option>
-        <option name="wrap">true</option>
-        <format field="Alerts in the Last 72 Hours" type="sparkline">
-          <option name="type">bar</option>
-          <option name="barColor">green</option>
-          <option name="colorMap">
-            <option name="1:3">navy</option>
-            <option name="3:7">orange</option>
-            <option name="8:">red</option>
-          </option>
-        </format>
-        <fields>["Alert","Last Fired","Times Fired","Alerts in the Last 72 Hours"]</fields>
         <drilldown target="_blank">
           <link>search?sid=$row.sid$</link>
         </drilldown>
+      </chart>
+    </panel>
+    <panel>
+      <title>Fired Alert Detail</title>
+      <table>
+        <search>
+          <query>index="_internal" sourcetype="scheduler" NOT alert_actions=""
+| reltime
+| table host _time reltime log_level user savedsearch_name app status action alert_actions result_count run_time
+| foreach _time 
+    [eval &lt;&lt;FIELD&gt;&gt;=strftime(&lt;&lt;FIELD&gt;&gt;, "%c")]</query>
+          <earliest>-60m@m</earliest>
+          <latest>now</latest>
+          <sampleRatio>1</sampleRatio>
+        </search>
+        <option name="count">100</option>
+        <option name="dataOverlayMode">none</option>
+        <option name="drilldown">none</option>
+        <option name="percentagesRow">false</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="rowNumbers">false</option>
+        <option name="totalsRow">false</option>
+        <option name="wrap">true</option>
+      </table>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <title>Alerts</title>
+      <table>
+        <title>$total_alert_count$ total alerts found.</title>
+        <search>
+          <done>
+            <set token="total_alert_count">$job.resultCount$</set>
+          </done>
+          <query>|  rest splunk_server=local /servicesNS/-/-/saved/searches 
+| search actions=* NOT actions=""
+| fields splunk_server eai:acl.owner author eai:acl.app title description search actions triggered_alert_count actions alert.severity alert_threshold alert_comparator cron_schedule disabled</query>
+          <earliest>$alerts_timepicker.earliest$</earliest>
+          <latest>$alerts_timepicker.latest$</latest>
+          <sampleRatio>1</sampleRatio>
+        </search>
+        <option name="count">50</option>
+        <option name="dataOverlayMode">none</option>
+        <option name="drilldown">none</option>
+        <option name="percentagesRow">false</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="rowNumbers">false</option>
+        <option name="totalsRow">false</option>
+        <option name="wrap">true</option>
+        <format type="color" field="disabled">
+          <colorPalette type="map">{"0":#53A051,"1":#DC4E41}</colorPalette>
+        </format>
+        <format type="color" field="eai:acl.app">
+          <colorPalette type="sharedList"></colorPalette>
+          <scale type="sharedCategory"></scale>
+        </format>
       </table>
     </panel>
   </row>
