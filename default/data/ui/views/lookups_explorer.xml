@@ -1,0 +1,267 @@
+<form theme="light" stylesheet="admin_assistant_stylesheet.css">
+  <label>Lookups Explorer</label>
+  <description>Analyze your lookups using the Splunk REST API.</description>
+  <!-- Base Search -->
+  <search id="baseSearch_1">
+    <query>| rest splunk_server=local /servicesNS/-/-/data/lookup-table-files
+| eval source="file"
+| append 
+    [rest splunk_server=local /servicesNS/-/-/data/props/lookups
+    |eval source="props"]
+| append 
+    [rest splunk_server=local /servicesNS/-/-/data/transforms/lookups
+    |eval source="transforms"]
+
+| eval _time=strptime(updated, "%Y-%m-%dT%H:%M:%S%z") 
+| fillnull _time value="0" 
+
+| reltime 
+| eval _time=strftime(_time, "%Y-%m-%d %H:%M:%S") 
+| eval updated=_time." (".reltime.")" 
+| rename eai:acl.* as * 
+| rename eai:* as *
+</query>
+    <earliest>$timepicker.earliest$</earliest>
+    <latest>$timepicker.latest$</latest>
+  </search>
+  <!-- Form Inputs -->
+  <fieldset submitButton="false" autoRun="true">
+    <input type="time" token="timepicker">
+      <label>Time Range</label>
+      <default>
+        <earliest>@w0</earliest>
+        <latest>now</latest>
+      </default>
+    </input>
+    <input type="multiselect" token="appToken" searchWhenChanged="true">
+      <label>Filter by App</label>
+      <choice value="*">All</choice>
+      <fieldForLabel>app</fieldForLabel>
+      <fieldForValue>app</fieldForValue>
+      <search base="baseSearch_1">
+        <query>| fields app
+| dedup app
+| sort app</query>
+      </search>
+      <delimiter>,  </delimiter>
+      <prefix>(app IN (</prefix>
+      <suffix>))</suffix>
+      <initialValue>*</initialValue>
+    </input>
+    <input type="text" token="splunk_server_token" searchWhenChanged="true">
+      <label>Filter by splunk_server</label>
+      <choice value="*">All</choice>
+      <fieldForLabel>splunk_server</fieldForLabel>
+      <fieldForValue>splunk_server</fieldForValue>
+      <delimiter>,  </delimiter>
+      <prefix>(splunk_server IN (</prefix>
+      <suffix>))</suffix>
+      <initialValue>*</initialValue>
+    </input>
+  </fieldset>
+  <row>
+    <panel id="html_header2">
+      <html encoded="1">&lt;h1 align="center"&gt;Lookups Summary&lt;/h1&gt;
+        
+      </html>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <chart>
+        <title>Lookup Utilization by App</title>
+        <search base="baseSearch_1">
+          <query>| search $splunk_server_token$ $appToken$
+| chart count over app by source
+| addtotals fieldname="temp_sort"
+| sort - temp_sort
+| fields - temp_sort</query>
+        </search>
+        <option name="charting.axisLabelsX.majorLabelStyle.rotation">-45</option>
+        <option name="charting.axisTitleX.visibility">collapsed</option>
+        <option name="charting.axisTitleY.visibility">collapsed</option>
+        <option name="charting.axisTitleY2.visibility">collapsed</option>
+        <option name="charting.chart">pie</option>
+        <option name="charting.chart.stackMode">stacked</option>
+        <option name="charting.drilldown">none</option>
+        <option name="charting.legend.placement">none</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="trellis.enabled">1</option>
+        <option name="trellis.size">medium</option>
+        <option name="trellis.splitBy">source</option>
+      </chart>
+    </panel>
+    <panel>
+      <title>KV Store Collections</title>
+      <table>
+        <search>
+          <query>| rest splunk_server=local /servicesNS/-/-/server/introspection/kvstore/collectionstats 
+| eval source="collections" 
+| fillnull _time value="0" 
+| reltime 
+| eval _time=strftime(_time, "%Y-%m-%d %H:%M:%S") 
+| eval updated=_time." (".reltime.")" 
+| rename eai:acl.* as * 
+| rename eai:* as * 
+| mvexpand data 
+| spath input=data 
+| fields - app
+| rex field=ns "(?&lt;app&gt;.*)\.(?&lt;collection&gt;.*)"| eval dbsize=round(size/1024/1024, 2)
+| eval indexsize=round(totalIndexSize/1024/1024, 2)
+| search (app IN (*))
+| stats values(collection) as collections by app</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+          <sampleRatio>1</sampleRatio>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+        <format type="color" field="app">
+          <colorPalette type="sharedList"></colorPalette>
+          <scale type="sharedCategory"></scale>
+        </format>
+      </table>
+    </panel>
+  </row>
+  <row>
+    <panel id="html_header1">
+      <html>
+            <h1 align="center">Lookup Details</h1>
+        </html>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <title>Lookup Files</title>
+      <input type="multiselect" token="lookupFileTitle_token" searchWhenChanged="true">
+        <label>Filter by Lookup File Name</label>
+        <choice value="*">All</choice>
+        <fieldForLabel>title</fieldForLabel>
+        <fieldForValue>title</fieldForValue>
+        <search base="baseSearch_1">
+          <query>| search source=file $appToken$
+| fields title 
+| dedup title 
+| sort title</query>
+        </search>
+        <delimiter>,  </delimiter>
+        <prefix>(title IN (</prefix>
+        <suffix>))</suffix>
+        <initialValue>*</initialValue>
+      </input>
+      <table>
+        <title>Found $lookupFile_count$ lookup files. REST endpoint: data/lookup-table-files</title>
+        <search base="baseSearch_1">
+          <done>
+            <set token="lookupFile_count">$job.resultCount$</set>
+          </done>
+          <query>| search source=file $appToken$ $lookupFileTitle_token$
+| eval perms.read=mvjoin('perms.read', "; ") 
+| eval perms.write=mvjoin('perms.write',"; ") 
+| table title app perms.* disabled author updated
+| sort - updated</query>
+        </search>
+        <option name="count">10</option>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+        <format type="color" field="app">
+          <colorPalette type="sharedList"></colorPalette>
+          <scale type="sharedCategory"></scale>
+        </format>
+      </table>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <title>Props.conf Automatic Lookups</title>
+      <input type="multiselect" token="automaticLookupTitle_token" searchWhenChanged="true">
+        <label>Filter by Lookup Name</label>
+        <choice value="*">All</choice>
+        <fieldForLabel>title</fieldForLabel>
+        <fieldForValue>title</fieldForValue>
+        <search base="baseSearch_1">
+          <query>| search source=props $appToken$
+| fields title 
+| dedup title 
+| sort title</query>
+        </search>
+        <delimiter>,  </delimiter>
+        <prefix>(title IN (</prefix>
+        <suffix>))</suffix>
+        <initialValue>*</initialValue>
+      </input>
+      <table>
+        <title>Found $propsLookup_count$ automatic lookups in props.conf. REST endpoint: data/props/lookups</title>
+        <search base="baseSearch_1">
+          <done>
+            <set token="propsLookup_count">$job.resultCount$</set>
+          </done>
+          <query>| search source=props $appToken$ $automaticLookupTitle_token$
+| eval perms.read=mvjoin('perms.read', "; ") 
+| eval perms.write=mvjoin('perms.write',"; ") 
+| table title app stanza transform value author splunk_server perms.* updated
+| sort - updated</query>
+        </search>
+        <option name="count">10</option>
+        <option name="drilldown">none</option>
+        <format type="color" field="app">
+          <colorPalette type="sharedList"></colorPalette>
+          <scale type="sharedCategory"></scale>
+        </format>
+      </table>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <title>Transforms.conf Lookup Definitions</title>
+      <input type="multiselect" token="lookupDefinitionTitle_token" searchWhenChanged="true">
+        <label>Filter by Lookup Definition</label>
+        <choice value="*">All</choice>
+        <fieldForLabel>title</fieldForLabel>
+        <fieldForValue>title</fieldForValue>
+        <search base="baseSearch_1">
+          <query>| search source=transforms $appToken$
+| fields title 
+| dedup title 
+| sort title</query>
+        </search>
+        <delimiter>,  </delimiter>
+        <prefix>(title IN (</prefix>
+        <suffix>))</suffix>
+        <initialValue>*</initialValue>
+      </input>
+      <input type="multiselect" token="lookupDefinition_type_token" searchWhenChanged="true">
+        <label>Filter by Type</label>
+        <choice value="*">All</choice>
+        <choice value="file">file</choice>
+        <choice value="kvstore">kvstore</choice>
+        <choice value="geo">geo</choice>
+        <choice value="external">external</choice>
+        <initialValue>*</initialValue>
+        <prefix>(type IN (</prefix>
+        <suffix>))</suffix>
+        <delimiter>,  </delimiter>
+      </input>
+      <table>
+        <title>Found $transformsLookup_count$ lookup definitions in transforms.conf. REST Endpoint: data/transforms/lookups</title>
+        <search base="baseSearch_1">
+          <done>
+            <set token="transformsLookup_count">$job.resultCount$</set>
+          </done>
+          <query>| search source=transforms $appToken$ $lookupDefinitionTitle_token$ $lookupDefinition_type_token$
+| eval perms.read=mvjoin('perms.read', "; ") 
+| eval perms.write=mvjoin('perms.write',"; ") 
+| table title app type filename collection author splunk_server perms.* updated
+| sort - updated</query>
+        </search>
+        <option name="count">10</option>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+        <format type="color" field="app">
+          <colorPalette type="sharedList"></colorPalette>
+          <scale type="sharedCategory"></scale>
+        </format>
+      </table>
+    </panel>
+  </row>
+</form>
