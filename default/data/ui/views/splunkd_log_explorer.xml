@@ -1,0 +1,199 @@
+<form stylesheet="admin_assistant_stylesheet.css" theme="light">
+  <label>Splunkd Log Explorer</label>
+  <!-- Base Search -->
+  <search id="splunkdLogExplorer_baseSearch">
+    <query>index=_internal sourcetype=splunkd source="*splunkd.log" $host_token$ $log_level_token$ 
+    | fields _time host splunk_server log_level component event_message
+    | reltime
+    </query>
+    <earliest>$internalLogs_timepicker.earliest$</earliest>
+    <latest>$internalLogs_timepicker.latest$</latest>
+  </search>
+  <fieldset submitButton="true" autoRun="true">
+    <input type="time" token="internalLogs_timepicker">
+      <label>Time Range</label>
+      <default>
+        <earliest>-15m</earliest>
+        <latest>now</latest>
+      </default>
+    </input>
+    <input type="multiselect" token="host_token">
+      <label>Host</label>
+      <choice value="*">All</choice>
+      <fieldForLabel>host</fieldForLabel>
+      <fieldForValue>host</fieldForValue>
+      <search base="splunkdLogExplorer_baseSearch">
+        <query>| stats values(host) as host
+| mvexpand host
+| dedup host</query>
+      </search>
+      <delimiter> OR  </delimiter>
+      <prefix>(</prefix>
+      <suffix>)</suffix>
+      <valuePrefix>host=</valuePrefix>
+      <initialValue>*</initialValue>
+    </input>
+    <input type="multiselect" token="log_level_token">
+      <label>Log Level</label>
+      <choice value="*">All</choice>
+      <choice value="DEBUG">DEBUG</choice>
+      <choice value="INFO">INFO</choice>
+      <choice value="WARN">WARN</choice>
+      <choice value="ERROR">ERROR</choice>
+      <choice value="FATAL">FATAL</choice>
+      <prefix>(</prefix>
+      <suffix>)</suffix>
+      <initialValue>WARN,ERROR</initialValue>
+      <valuePrefix>log_level="</valuePrefix>
+      <delimiter> OR </delimiter>
+      <valueSuffix>"</valueSuffix>
+    </input>
+    <input type="text" token="event_message_token">
+      <label>Event Message Contains</label>
+      <default>*</default>
+      <prefix>event_message="</prefix>
+      <suffix>"</suffix>
+    </input>
+  </fieldset>
+  <row>
+    <panel id="html_header1">
+      <html encoded="1">&lt;h1 align="center"&gt;Logs Over Time&lt;/h1&gt;</html>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <input type="dropdown" token="log_timechart_splitby" searchWhenChanged="true">
+        <label>Split By</label>
+        <choice value="host">host</choice>
+        <choice value="log_level">log_level</choice>
+        <choice value="component">component</choice>
+        <choice value="splunk_server">splunk_server</choice>
+        <choice value="event_message">event_message</choice>
+        <initialValue>log_level</initialValue>
+      </input>
+      <chart>
+        <search base="splunkdLogExplorer_baseSearch">
+          <query>| timechart count by $log_timechart_splitby$</query>
+        </search>
+        <!-- Chart colors for log level -->
+        <option name="charting.axisLabelsX.majorLabelStyle.overflowMode">ellipsisNone</option>
+        <option name="charting.axisLabelsX.majorLabelStyle.rotation">45</option>
+        <option name="charting.axisTitleX.visibility">collapsed</option>
+        <option name="charting.axisTitleY.visibility">collapsed</option>
+        <option name="charting.axisTitleY2.visibility">visible</option>
+        <option name="charting.axisX.abbreviation">none</option>
+        <option name="charting.axisX.scale">linear</option>
+        <option name="charting.axisY.abbreviation">auto</option>
+        <option name="charting.axisY.scale">linear</option>
+        <option name="charting.axisY2.abbreviation">auto</option>
+        <option name="charting.axisY2.enabled">0</option>
+        <option name="charting.axisY2.scale">inherit</option>
+        <option name="charting.chart">column</option>
+        <option name="charting.chart.bubbleMaximumSize">50</option>
+        <option name="charting.chart.bubbleMinimumSize">10</option>
+        <option name="charting.chart.bubbleSizeBy">area</option>
+        <option name="charting.chart.nullValueMode">gaps</option>
+        <option name="charting.chart.showDataLabels">none</option>
+        <option name="charting.chart.sliceCollapsingThreshold">0.01</option>
+        <option name="charting.chart.stackMode">stacked</option>
+        <option name="charting.chart.style">shiny</option>
+        <option name="charting.drilldown">none</option>
+        <option name="charting.fieldColors">{"WARN":#F8BE34,"ERROR":#DC4E41,"INFO":#708794}</option>
+        <option name="charting.layout.splitSeries">0</option>
+        <option name="charting.layout.splitSeries.allowIndependentYRanges">0</option>
+        <option name="charting.legend.labelStyle.overflowMode">ellipsisMiddle</option>
+        <option name="charting.legend.mode">standard</option>
+        <option name="charting.legend.placement">right</option>
+        <option name="charting.lineWidth">2</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="trellis.enabled">0</option>
+        <option name="trellis.scales.shared">1</option>
+        <option name="trellis.size">medium</option>
+        <option name="trellis.splitBy">_aggregation</option>
+      </chart>
+    </panel>
+    <panel>
+      <title>Recent Logs</title>
+      <table>
+        <title>$recentLogs_resultCount$ logs found in time range.</title>
+        <search base="splunkdLogExplorer_baseSearch">
+          <progress>
+            <set token="recentLogs_resultCount">$job.resultCount$</set>
+          </progress>
+          <done>
+            <eval token="recentLogs_earliest">strftime(strptime($job.earliestTime$,"%Y/%m/%d %H:%M:%S %p"),"%Y/%m/%d %H:%M:%S %p")</eval>
+            <eval token="recentLogs_latest">strftime(strptime($job.latestTime$,"%Y/%m/%d %H:%M:%S %p"),"%Y/%m/%d %H:%M:%S %p")</eval>
+          </done>
+          <query>| table _time reltime host log_level component event_message sid
+| fieldformat _time = strftime(_time, "%Y-%m-%d %H:%M:%S")
+| sort - _time</query>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="rowNumbers">true</option>
+        <format type="color" field="log_level">
+          <colorPalette type="map">{"WARN":#F8BE34,"ERROR":#DC4E41,"INFO":#708794}</colorPalette>
+        </format>
+        <format type="color" field="component">
+          <colorPalette type="sharedList"></colorPalette>
+          <scale type="sharedCategory"></scale>
+        </format>
+        <format type="color" field="host">
+          <colorPalette type="sharedList"></colorPalette>
+          <scale type="sharedCategory"></scale>
+        </format>
+      </table>
+    </panel>
+  </row>
+  <row>
+    <panel id="html_header2">
+      <html encoded="1">&lt;h1 align="center"&gt;Splunkd Log Details&lt;/h1&gt;</html>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <title>Top Messages</title>
+      <table>
+        <title>$messages_resultCount$ unique messages found in time range.</title>
+        <search base="splunkdLogExplorer_baseSearch">
+          <progress>
+            <set token="messages_resultCount">$job.resultCount$</set>
+          </progress>
+          <done>
+            <set token="messages_earliest">$job.earliestTime$</set>
+          </done>
+          <query>| stats latest(reltime) as last_seen sparkline as trend count by log_level component event_message
+| sort - count</query>
+        </search>
+        <option name="count">10</option>
+        <option name="dataOverlayMode">none</option>
+        <option name="drilldown">none</option>
+        <option name="percentagesRow">false</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="rowNumbers">true</option>
+        <option name="totalsRow">false</option>
+        <option name="wrap">true</option>
+        <format type="color" field="count">
+          <colorPalette type="minMidMax" maxColor="#DC4E41" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="1"></scale>
+        </format>
+        <format type="number" field="count">
+          <option name="precision">0</option>
+        </format>
+        <format type="color" field="log_level">
+          <colorPalette type="map">{"INFO":#708794,"WARN":#F8BE34,"ERROR":#DC4E41}</colorPalette>
+        </format>
+        <format type="color" field="component">
+          <colorPalette type="sharedList"></colorPalette>
+          <scale type="sharedCategory"></scale>
+        </format>
+        <format field="trend" type="sparkline">
+          <option name="type">bar</option>
+          <option name="colorMap">
+            <option name="0">#808080</option>
+          </option>
+        </format>
+      </table>
+    </panel>
+  </row>
+</form>
