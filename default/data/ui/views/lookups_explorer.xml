@@ -108,7 +108,7 @@
 | fields - app
 | rex field=ns "(?&lt;app&gt;.*)\.(?&lt;collection&gt;.*)"| eval dbsize=round(size/1024/1024, 2)
 | eval indexsize=round(totalIndexSize/1024/1024, 2)
-| search (app IN (*))
+| search $appToken$
 | stats values(collection) as collections by app</query>
           <earliest>-24h@h</earliest>
           <latest>now</latest>
