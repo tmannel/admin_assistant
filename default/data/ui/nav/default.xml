@@ -20,6 +20,7 @@
     <view name="server_overview" />
     <view name="bucket_explorer" />
     <view name="internal_log_explorer" />
+    <view name="lookups_explorer" />
   </collection>
   <view name="search" />
   <collection label="Explore Content">
