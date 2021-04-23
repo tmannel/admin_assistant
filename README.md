@@ -16,10 +16,6 @@ Install on Splunk search heads. No knowledge objects other than views are requir
   cd $SPLUNK_HOME/etc/apps
   git clone https://github.com/tmannel/admin_assistant
 ```
-  
-- Install from the .spl file in this repository:
-
-  github.com/tmannel/admin_assistant/install/admin_assistant.spl
 
 ## Roadmap
 Introspection on indexers, search heads, heavy forwarders. Top talkers of errors and likely source.
