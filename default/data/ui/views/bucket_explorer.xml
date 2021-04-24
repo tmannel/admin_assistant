@@ -5,7 +5,7 @@
   <search id="bucketRolls_baseSearch">
     <query>
       index=_internal sourcetype=splunkd source="*splunkd.log" component=HotBucketRoller
-      | fields _time idx splunk_server size from to bid event_message
+      | fields _time idx host splunk_server size from to bid event_message
       | rename idx as index
       | search $bucket_index_token$
     </query>
@@ -73,7 +73,7 @@
       <table>
         <title>dbinspect query returning bucket metrics by bucket state and index.</title>
         <search>
-          <query>| dbinspect index=* 
+          <query>| dbinspect index=* datatype=all
 | fields bucketId index state eventCount startEpoch endEpoch hostCount rawSize sizeOnDiskMB sourceCount sourceTypeCount splunk_server 
 | search $bucket_index_token$ $bucket_state_token$ 
 | eval rawMB=((rawSize/1024)/1024) 
@@ -321,10 +321,8 @@
       <title>Hot to Warm Rolls</title>
       <table>
         <search base="bucketRolls_baseSearch">
-          <query>
-            | table index _time splunk_server size from to bid event_message
-            | sort - _time
-          </query>
+          <query>| table _time host splunk_server index size from to bid event_message
+            | sort - _time</query>
         </search>
         <option name="count">10</option>
         <option name="dataOverlayMode">none</option>
@@ -353,6 +351,10 @@
         <format type="number" field="size">
           <option name="precision">0</option>
         </format>
+        <format type="color" field="host">
+          <colorPalette type="sharedList"></colorPalette>
+          <scale type="sharedCategory"></scale>
+        </format>
       </table>
     </panel>
   </row>
@@ -365,13 +367,13 @@
     <panel>
       <table>
         <search>
-          <query>| rest /services/data/indexes 
+          <query>| rest /servicesNS/-/-/data/indexes datatype=all
 | eval frzHours=frozenTimePeriodInSecs/3600 
 | eval frzDays=frzHours/24 
 | eval frzYears=frzDays/365 
 | eval maxHotSpanDays=maxHotSpanSecs/86400 
 | rename title as index, eai:acl.app as app
-| table app index datatype totalEventCount minTime maxTime splunk_server repFactor maxMemMB frozenTimePeriodInSecs frz* maxHotSpanDays currentDBSizeMB maxTotalDataSizeMB maxHotBuckets maxWarmDBCount maxDataSize homePath.maxDataSizeMB coldPath.maxDataSizeMB 
+| table app splunk_server index datatype totalEventCount minTime maxTime repFactor maxMemMB frozenTimePeriodInSecs frz* maxHotSpanDays currentDBSizeMB maxTotalDataSizeMB maxHotBuckets maxWarmDBCount maxDataSize homePath.maxDataSizeMB coldPath.maxDataSizeMB 
 | search $bucket_index_token$
 | sort - maxTime</query>
           <earliest>-24h@h</earliest>
