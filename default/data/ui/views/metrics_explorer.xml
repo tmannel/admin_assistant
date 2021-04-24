@@ -1,0 +1,170 @@
+<form theme="light" stylesheet="admin_assistant_stylesheet.css">
+  <label>Metrics Explorer</label>
+  <description>Analyze and understand your metrics indexes.</description>
+  <!-- Base Search -->
+  <search id="baseSearch_1">
+    <query>|mcatalog values(_dims) as _dims where $indexToken$ $sourcetypeToken$ $hostToken$ $metric_nameToken$  by index sourcetype host metric_name</query>
+    <earliest>$timepicker.earliest$</earliest>
+    <latest>$timepicker.latest$</latest>
+  </search>
+  <!-- Form Inputs -->
+  <!-- Begin Panels -->
+  <!-- Panels Begin -->
+  <fieldset submitButton="true" autoRun="true">
+    <input type="time" token="timepicker">
+      <label>Time Range</label>
+      <default>
+        <earliest>-4h@m</earliest>
+        <latest>now</latest>
+      </default>
+    </input>
+    <input type="multiselect" token="indexToken">
+      <label>Filter by Index</label>
+      <choice value="*">All non-internal</choice>
+      <choice value="_*">All internal</choice>
+      <fieldForLabel>index</fieldForLabel>
+      <fieldForValue>index</fieldForValue>
+      <search>
+        <query>| mcatalog values(sourcetype) as sourcetype where index IN (*, _*) by index 
+| sort index</query>
+        <earliest>-24h@h</earliest>
+        <latest>now</latest>
+      </search>
+      <delimiter>, </delimiter>
+      <initialValue>*,_*</initialValue>
+      <prefix>index IN (</prefix>
+      <suffix>)</suffix>
+    </input>
+    <input type="multiselect" token="sourcetypeToken">
+      <label>Filter by Sourcetype</label>
+      <choice value="*">All</choice>
+      <prefix>sourcetype IN (</prefix>
+      <suffix>)</suffix>
+      <delimiter>, </delimiter>
+      <fieldForLabel>sourcetype</fieldForLabel>
+      <fieldForValue>sourcetype</fieldForValue>
+      <search>
+        <query>| mcatalog values(sourcetype) as sourcetype where index IN (*, _*) 
+| mvexpand sourcetype 
+| sort sourcetype</query>
+        <earliest>-24h@h</earliest>
+        <latest>now</latest>
+      </search>
+      <initialValue>*</initialValue>
+    </input>
+    <input type="multiselect" token="metric_nameToken">
+      <label>Filter by Metric Name</label>
+      <choice value="*">All</choice>
+      <prefix>metric_name IN (</prefix>
+      <suffix>)</suffix>
+      <initialValue>*</initialValue>
+      <delimiter>, </delimiter>
+      <fieldForLabel>metric_name</fieldForLabel>
+      <fieldForValue>metric_name</fieldForValue>
+      <search>
+        <query>|mcatalog values(metric_name) as metric_name where index IN (*, _*)|mvexpand metric_name</query>
+        <earliest>-24h@h</earliest>
+        <latest>now</latest>
+      </search>
+    </input>
+    <input type="multiselect" token="hostToken">
+      <label>Filter by Host</label>
+      <choice value="*">All</choice>
+      <prefix>host IN (</prefix>
+      <suffix>)</suffix>
+      <initialValue>*</initialValue>
+      <delimiter>, </delimiter>
+      <fieldForLabel>host</fieldForLabel>
+      <fieldForValue>host</fieldForValue>
+      <search>
+        <query>|mcatalog values(host) as host where index IN (*, _*)|mvexpand host|sort host</query>
+        <earliest>-24h@h</earliest>
+        <latest>now</latest>
+      </search>
+    </input>
+  </fieldset>
+  <row>
+    <panel id="html_header1">
+      <html>
+            <h1 align="center">Available Metrics</h1>
+            <p align="center">By index, sourcetype, with available dimensions</p>
+        </html>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <table>
+        <search base="baseSearch_1">
+          <query>| stats values(_dims) as dimensions by index sourcetype metric_name 
+| eval dimensions = mvjoin(dimensions, "; ")</query>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+        <format type="color" field="index">
+          <colorPalette type="sharedList"></colorPalette>
+          <scale type="sharedCategory"></scale>
+        </format>
+        <format type="color" field="sourcetype">
+          <colorPalette type="sharedList"></colorPalette>
+          <scale type="sharedCategory"></scale>
+        </format>
+        <format type="color" field="dimensions">
+          <colorPalette type="sharedList"></colorPalette>
+          <scale type="sharedCategory"></scale>
+        </format>
+      </table>
+    </panel>
+  </row>
+  <row>
+    <panel id="html_header2">
+      <html>
+        <h1 align="center">Metrics Ingestion</h1>
+      </html>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <input type="link" token="splitBy_Token" searchWhenChanged="true">
+        <label>Split By</label>
+        <choice value="index">index</choice>
+        <choice value="sourcetype">sourcetype</choice>
+        <choice value="metric_name">metric_name</choice>
+        <choice value="">- none -</choice>
+        <prefix>by </prefix>
+        <initialValue>index</initialValue>
+      </input>
+      <input type="link" token="spanToken" searchWhenChanged="true">
+        <label>Span</label>
+        <choice value="15s">15s</choice>
+        <choice value="1m">1m</choice>
+        <choice value="15m">15m</choice>
+        <choice value="1h">1h</choice>
+        <choice value="4h">4h</choice>
+        <choice value="1d">1d</choice>
+        <choice value="1w">1w</choice>
+        <choice value="1mo">1mo</choice>
+        <prefix>span=</prefix>
+        <initialValue>15m</initialValue>
+      </input>
+      <chart>
+        <title>Metrics Events over Time</title>
+        <search>
+          <query>| mstats $spanToken$ count(_value) as foo where $indexToken$ $sourcetypeToken$ $hostToken$ $metric_nameToken$ by index sourcetype metric_name 
+| timechart $spanToken$ limit=20 sum(foo) as count $splitBy_Token$</query>
+          <earliest>$timepicker.earliest$</earliest>
+          <latest>$timepicker.latest$</latest>
+        </search>
+        <option name="charting.axisLabelsX.majorLabelStyle.overflowMode">ellipsisMiddle</option>
+        <option name="charting.axisLabelsX.majorLabelStyle.rotation">45</option>
+        <option name="charting.axisTitleX.visibility">collapsed</option>
+        <option name="charting.axisY.abbreviation">auto</option>
+        <option name="charting.axisY2.enabled">0</option>
+        <option name="charting.chart">column</option>
+        <option name="charting.chart.stackMode">stacked</option>
+        <option name="charting.drilldown">none</option>
+        <option name="height">374</option>
+        <option name="refresh.display">progressbar</option>
+      </chart>
+    </panel>
+  </row>
+</form>
