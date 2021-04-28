@@ -73,21 +73,21 @@
       <table>
         <title>dbinspect query returning bucket metrics by bucket state and index.</title>
         <search>
-          <query>| dbinspect index=* datatype=all
+          <query>| dbinspect index=* datatype=all 
 | fields bucketId index state eventCount startEpoch endEpoch hostCount rawSize sizeOnDiskMB sourceCount sourceTypeCount splunk_server 
 | search $bucket_index_token$ $bucket_state_token$ 
 | eval rawMB=((rawSize/1024)/1024) 
 | eval rawGB=rawMB/1024 
 | eval sizeOnDiskGB=sizeOnDiskMB/1024 
-| stats dc(bucketId) as "Number of Buckets" sum(eventCount) as "Total Events" min(startEpoch) as earliestData max(endEpoch) as latestData avg(sourceCount) as "Avg Sources per Bucket" avg(sourceTypeCount) as "Avg Sourcetypes per Bucket" sum(sizeOnDiskMB) as "MB on Disk" sum(sizeOnDiskGB) as "GB on Disk" sum(rawMB) as "Raw MB" sum(rawGB) as "Raw GB" by $bucketStatistics_splitBy$ 
-| eval spanHours=(((latestData-earliestData)/60)/60) 
-| eval spanDays=spanHours/24 
-| foreach *Data
-    [ convert ctime(&lt;&lt;FIELD&gt;&gt;) timeformat="%Y-%m-%d %H:%M:%S"]
-| rename *Data as "* Data"
+| stats dc(bucketId) as "Number of Buckets" sum(eventCount) as "Total Events" min(startEpoch) as first_seen max(endEpoch) as last_seen avg(sourceCount) as "Avg Sources per Bucket" avg(sourceTypeCount) as "Avg Sourcetypes per Bucket" sum(sizeOnDiskMB) as "MB on Disk" sum(sizeOnDiskGB) as "GB on Disk" sum(rawMB) as "Raw MB" sum(rawGB) as "Raw GB" by $bucketStatistics_splitBy$ 
+| eval range_s = last_seen - first_seen 
+| eval range_string = tostring(range_s, "duration") 
+| eval range=if(match(range_string,"\+"),replace(range_string,"(\d+)\+(\d+)\:(\d+)\:(\d+)","\1 Day \2 Hr \3 Min \4 Secs"),replace(range_string,"(\d+)\:(\d+)\:(\d+)","\1 Hr \2 Min \3 Secs")) 
+| foreach *_seen 
+    [ convert ctime(<<FIELD>>) timeformat="%Y-%m-%d %H:%M:%S"] 
 | eval sort_field=case(state="hot",1,state="warm",2,state="cold",3) 
 | sort index, sort_field, -"Compressed MB on Disk" 
-| table $bucketStatistics_splitBy$ *Data span* "Number of Buckets" "Total Events" *Bucket *Disk Raw*</query>
+| table $bucketStatistics_splitBy$ first_seen last_seen range_s range span* "Number of Buckets" "Total Events" *Bucket *Disk Raw*</query>
           <earliest>$bucketModified_token.earliest$</earliest>
           <latest>$bucketModified_token.latest$</latest>
           <sampleRatio>1</sampleRatio>
