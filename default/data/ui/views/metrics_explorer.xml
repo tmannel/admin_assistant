@@ -27,8 +27,8 @@
       <search>
         <query>| mcatalog values(sourcetype) as sourcetype where index IN (*, _*) by index 
 | sort index</query>
-        <earliest>-24h@h</earliest>
-        <latest>now</latest>
+        <earliest>0</earliest>
+        <latest></latest>
       </search>
       <delimiter>, </delimiter>
       <initialValue>*,_*</initialValue>
@@ -87,7 +87,7 @@
     <panel id="html_header1">
       <html>
             <h1 align="center">Available Metrics</h1>
-            <p align="center">By index, sourcetype, with available dimensions</p>
+            <p align="center">By index, sourcetype, and available dimensions</p>
         </html>
     </panel>
   </row>
@@ -96,7 +96,10 @@
       <table>
         <search base="baseSearch_1">
           <query>| stats values(_dims) as dimensions by index sourcetype metric_name 
-| eval dimensions = mvjoin(dimensions, "; ")</query>
+| eval dimensions = mvjoin(dimensions, ", ")
+| mvcombine metric_name
+| eval metrics = mvjoin(metric_name, ", ")
+| table index sourcetype metrics dimensions</query>
         </search>
         <option name="drilldown">none</option>
         <option name="refresh.display">progressbar</option>
@@ -135,6 +138,7 @@
       </input>
       <input type="link" token="spanToken" searchWhenChanged="true">
         <label>Span</label>
+        <choice value="1s">1s</choice>
         <choice value="15s">15s</choice>
         <choice value="1m">1m</choice>
         <choice value="15m">15m</choice>
