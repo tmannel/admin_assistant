@@ -46,7 +46,7 @@
 | eval timeSinceLastLogin=now()-last_successful_login
 | eval sinceLastLogin=case(timeSinceLastLogin &lt; 3600, round(timeSinceLastLogin / 60) . " min ago", timeSinceLastLogin &lt; 86400, round(timeSinceLastLogin / 3600) . " hours ago", 1=1, round(timeSinceLastLogin / 86400) . " days ago")
 | eval last_successful_login=lastLogin." - ".sinceLastLogin
-| table realname username email type roles defaultApp last_successful_login is_admin rest_properties_get list_metrics_catalog
+| table realname username email type roles defaultApp last_successful_login is_admin rest_properties_get list_metrics_catalog get_metadata
 | eval value="value"
 | transpose column_name=property header_field="value"</query>
           <earliest>-60m@m</earliest>
