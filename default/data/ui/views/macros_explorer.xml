@@ -1,0 +1,137 @@
+<form theme="light" stylesheet="admin_assistant_stylesheet.css">
+  <label>Macros Explorer</label>
+  <description>Analyze your macros using the Splunk REST API.</description>
+  <!-- Base Search -->
+  <search id="baseSearch_1">
+    <query>| rest splunk_server=* /servicesNS/-/-/configs/conf-macros
+| table splunk_server eai:acl.app title definition args errormsg eai:acl.perms.read eai:acl.perms.write eai:userName author disabled updated
+| rename eai:acl.* as *
+| sort app title
+</query>
+    <earliest>$timepicker.earliest$</earliest>
+    <latest>$timepicker.latest$</latest>
+  </search>
+  <!-- Form Inputs -->
+  <fieldset submitButton="true" autoRun="true">
+    <input type="time" token="timepicker">
+      <label>Time Range</label>
+      <default>
+        <earliest>@w0</earliest>
+        <latest>now</latest>
+      </default>
+    </input>
+    <input type="text" token="splunk_server_token" searchWhenChanged="false">
+      <label>Filter by splunk_server</label>
+      <prefix>(splunk_server IN (</prefix>
+      <suffix>))</suffix>
+      <initialValue>*</initialValue>
+    </input>
+    <input type="multiselect" token="appToken" searchWhenChanged="false">
+      <label>Filter by App</label>
+      <choice value="*">All</choice>
+      <fieldForLabel>app</fieldForLabel>
+      <fieldForValue>app</fieldForValue>
+      <search base="baseSearch_1">
+        <query>| fields app
+| dedup app
+| sort app</query>
+      </search>
+      <delimiter>,  </delimiter>
+      <prefix>(app IN (</prefix>
+      <suffix>))</suffix>
+      <initialValue>*</initialValue>
+    </input>
+    <input type="multiselect" token="macroToken" searchWhenChanged="true">
+      <label>Filter by Macro</label>
+      <choice value="*">All</choice>
+      <fieldForLabel>title</fieldForLabel>
+      <fieldForValue>title</fieldForValue>
+      <search base="baseSearch_1">
+        <query>| search $appToken$
+| fields title 
+| dedup title 
+| sort title</query>
+      </search>
+      <delimiter>,  </delimiter>
+      <prefix>(title IN (</prefix>
+      <suffix>))</suffix>
+      <initialValue>*</initialValue>
+    </input>
+  </fieldset>
+  <row>
+    <panel id="html_header2">
+      <html encoded="1">&lt;h1 align="center"&gt;Macros Summary&lt;/h1&gt;
+        
+      </html>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <chart>
+        <title>Macros by App</title>
+        <search base="baseSearch_1">
+          <query>| search $splunk_server_token$ $appToken$ $macroToken$
+| chart dc(title) as count over app
+| sort - count</query>
+        </search>
+        <option name="charting.axisLabelsX.majorLabelStyle.rotation">-45</option>
+        <option name="charting.axisTitleX.visibility">visible</option>
+        <option name="charting.axisTitleY.visibility">visible</option>
+        <option name="charting.axisTitleY2.visibility">visible</option>
+        <option name="charting.chart">bar</option>
+        <option name="charting.chart.showDataLabels">all</option>
+        <option name="charting.chart.stackMode">stacked</option>
+        <option name="charting.drilldown">none</option>
+        <option name="charting.legend.placement">none</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="trellis.enabled">0</option>
+        <option name="trellis.size">medium</option>
+        <option name="trellis.splitBy">source</option>
+      </chart>
+    </panel>
+    <panel>
+      <chart>
+        <title>Total Macros by Splunk Server</title>
+        <search base="baseSearch_1">
+          <query>| search $splunk_server_token$ $appToken$ $macroToken$
+| chart count over splunk_server
+| sort - count</query>
+        </search>
+        <option name="charting.chart">bar</option>
+        <option name="charting.chart.showDataLabels">all</option>
+        <option name="charting.drilldown">none</option>
+      </chart>
+    </panel>
+  </row>
+  <row>
+    <panel id="html_header1">
+      <html>
+            <h1 align="center">Macro Details</h1>
+        </html>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <table>
+        <title>Found $lookupFile_count$ macros. REST endpoint: configs/conf-macros</title>
+        <search base="baseSearch_1">
+          <done>
+            <set token="lookupFile_count">$job.resultCount$</set>
+          </done>
+          <query>| search $appToken$ $macroToken$</query>
+        </search>
+        <option name="count">10</option>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+        <format type="color" field="app">
+          <colorPalette type="sharedList"></colorPalette>
+          <scale type="sharedCategory"></scale>
+        </format>
+        <format type="color" field="splunk_server">
+          <colorPalette type="sharedList"></colorPalette>
+          <scale type="sharedCategory"></scale>
+        </format>
+      </table>
+    </panel>
+  </row>
+</form>
