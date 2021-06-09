@@ -7,7 +7,7 @@
       index=_audit sourcetype=audittrail action="login attempt" $userToken$
       | fields _time user host info clientip useragent session src reason
       | join user 
-          [ | rest services/authentication/users
+          [ | rest /servicesNS/-/-/authentication/users
           | rename title as user
           | fields user roles]
           | search $roleToken$
@@ -36,7 +36,7 @@
       <fieldForLabel>title</fieldForLabel>
       <fieldForValue>title</fieldForValue>
       <search>
-        <query>| rest services/authorization/roles
+        <query>| rest /servicesNS/-/-/authorization/roles
 | fields title
 | dedup title</query>
         <earliest>-24h@h</earliest>
@@ -54,7 +54,7 @@
       <fieldForLabel>title</fieldForLabel>
       <fieldForValue>title</fieldForValue>
       <search>
-        <query>| rest services/authentication/users
+        <query>| rest /servicesNS/-/-/authentication/users
 | fields title
 | dedup title</query>
         <earliest>-24h@h</earliest>
