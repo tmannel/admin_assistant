@@ -4,11 +4,8 @@ The Admin Assistant allows Splunk admins to monitor data ingestion and onboardin
 ## Installation
 Install pre-requisite visualization apps on search heads or search head cluster:
 - Sankey Diagram
-- Timeline Viz
-- Punchcard
-- Parallel Coordinates Diagram
 
-Install on Splunk search heads. No knowledge objects other than views are required for Admin Assistant. Two Options are available:
+Install on Splunk monitoring console and/or search heads. No knowledge objects other than views are required for Admin Assistant. Two Options are available:
 
 - Install using git into the apps directory:
 
@@ -16,12 +13,14 @@ Install on Splunk search heads. No knowledge objects other than views are requir
   cd $SPLUNK_HOME/etc/apps
   git clone https://github.com/tmannel/admin_assistant
 ```
+- Download the .spl package and upload via the Splunk UI:
+[link to .spl](https://adminassistantpackage.s3.amazonaws.com/admin_assistant.spl)
 
 ## Roadmap
-Introspection on indexers, search heads, heavy forwarders. Top talkers of errors and likely source.
+Introspection on indexers, search heads, heavy forwarders. Clustering insights.
 
 ## Author
 Tim Mannel, Splunk Solutions Engineer
 
 ## License
-Admin Assistant is free!
+Admin Assistant is licensed under the GNU Public Livense v3 free of charge.
