@@ -1,0 +1,176 @@
+<form theme="light" stylesheet="admin_assistant_stylesheet.css">
+  <label>Admin Assistant Template</label>
+  <description>Use this dashboard as a repository for panels, inputs, CSS, and more. When editing the Admin Assistant app, either clone panels or copy the XML from here.</description>
+  <search id="baseSearch_1">
+    <!-- Base Search 1 -->
+    <query>| makeresults count=7
+| streamstats count as id 
+| eval _time = now() - 86400*id
+| eval foo = random() % 10</query>
+    <earliest>$timepicker.earliest$</earliest>
+    <latest>$timepicker.latest$</latest>
+  </search>
+  <search id="baseSearch_list_sourcetypes">
+    <!-- List sourcetypes base search -->
+    <query>| metadata type=sourcetypes</query>
+    <earliest>$timepicker.earliest$</earliest>
+    <latest>$timepicker.latest$</latest>
+  </search>
+  <fieldset submitButton="true" autoRun="true">
+    <input type="time" token="timepicker">
+      <label>Time Range</label>
+      <default>
+        <earliest>-7d@h</earliest>
+        <latest>now</latest>
+      </default>
+    </input>
+    <input type="multiselect" token="index_token">
+      <label>Index</label>
+      <choice value="* NOT index=&quot;_*&quot;">All non-internal</choice>
+      <choice value="*">All</choice>
+      <choice value="&quot;_*&quot;">All internal</choice>
+      <default>"* NOT index=""_*"""</default>
+      <fieldForLabel>title</fieldForLabel>
+      <fieldForValue>title</fieldForValue>
+      <search>
+        <query>|  rest services/data/indexes
+| fields title
+| dedup title</query>
+        <earliest>-24h@h</earliest>
+        <latest>now</latest>
+      </search>
+      <delimiter> </delimiter>
+    </input>
+    <input type="multiselect" token="sourcetype_token">
+      <label>Sourcetype</label>
+      <choice value="*">All</choice>
+      <prefix>sourcetype IN (</prefix>
+      <suffix>)</suffix>
+      <fieldForLabel>sourcetype</fieldForLabel>
+      <fieldForValue>sourcetype</fieldForValue>
+      <delimiter>,  </delimiter>
+      <search base="baseSearch_list_sourcetypes">
+        <query>|fields sourcetype</query>
+      </search>
+      <initialValue>*</initialValue>
+    </input>
+    <input type="text" token="host_token">
+      <label>Host</label>
+      <prefix>host IN (</prefix>
+      <suffix>)</suffix>
+      <initialValue>*</initialValue>
+    </input>
+    <input type="multiselect" token="splunk_server_token">
+      <label>splunk_server</label>
+      <prefix>splunk_server IN (</prefix>
+      <suffix>)</suffix>
+      <delimiter>, </delimiter>
+      <fieldForLabel>splunk_server</fieldForLabel>
+      <fieldForValue>splunk_server</fieldForValue>
+      <search>
+        <query>| rest servicesNS/-/-/server/info
+| dedup splunk_server
+| fields splunk_server</query>
+        <earliest>-24h@h</earliest>
+        <latest>now</latest>
+      </search>
+      <choice value="*">All</choice>
+      <initialValue>*</initialValue>
+    </input>
+  </fieldset>
+  <row>
+    <panel id="html_header1">
+      <!-- HTML Header -->
+      <html>
+            <h1 align="center">Data Overview</h1>
+            <p align="center">Tip: Put KPIs here in tables and single numbers.</p>
+        </html>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <title>KPI Overview</title>
+      <single>
+        <search base="baseSearch_1">
+          <query>| table id foo
+| chart values(foo) by id
+| replace * with KPI_* in id</query>
+        </search>
+        <option name="colorMode">block</option>
+        <option name="drilldown">none</option>
+        <option name="rangeColors">["0x53a051","0xf8be34","0xf1813f","0xdc4e41"]</option>
+        <option name="rangeValues">[4,6,8]</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="trellis.enabled">1</option>
+        <option name="trellis.size">small</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <title>Overview Table</title>
+      <table>
+        <search base="baseSearch_1">
+          <query>|  table id foo
+| addcoltotals foo labelfield=id label=total</query>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </table>
+    </panel>
+    <panel>
+      <table>
+        <title>Top Hosts</title>
+        <search>
+          <query>| metadata type=hosts</query>
+          <earliest>$timepicker.earliest$</earliest>
+          <latest>$timepicker.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="rowNumbers">true</option>
+      </table>
+    </panel>
+  </row>
+  <row>
+    <panel id="html_header2">
+      <!-- HTML Header -->
+      <html>
+        <h1 align="center">Data Over Time</h1>
+        <p align="center">Tip: multiple timecharts can be useful for correlating data.</p>
+      </html>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <input type="dropdown" token="span_token" searchWhenChanged="true">
+        <label>Span</label>
+        <choice value="1s">1s</choice>
+        <choice value="15s">15s</choice>
+        <choice value="1m">1m</choice>
+        <choice value="15m">15m</choice>
+        <choice value="1h">1h</choice>
+        <choice value="4h">4h</choice>
+        <choice value="1d">1d</choice>
+        <choice value="1w">1w</choice>
+        <choice value="1mo">1mo</choice>
+        <prefix>span=</prefix>
+        <initialValue>1d</initialValue>
+      </input>
+      <chart>
+        <search>
+          <query>| makeresults count=7
+| streamstats count as id 
+| eval _time = now() - 86400*id
+| eval foo = random() % 10
+| timechart $span_token$ sum(foo) as value</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="charting.chart">column</option>
+        <option name="charting.drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </chart>
+    </panel>
+  </row>
+</form>
