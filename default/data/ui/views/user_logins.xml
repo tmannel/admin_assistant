@@ -1,11 +1,11 @@
 <form theme="light" stylesheet="admin_assistant_stylesheet.css">
   <label>User Logins</label>
-  <description>Analyze user logins and authentication settings. Note - 'Roles' is a joined from the Splunk REST API for user convenience, not extracted from the _audit log itself.</description>
+  <description>Analyze user logins and authentication activity.</description>
   <!-- Base Search -->
   <search id="userLogins_baseSearch">
     <query>
-      index=_audit sourcetype=audittrail action="login attempt" $userToken$
-      | fields _time user host info clientip useragent session src reason
+      index=_audit sourcetype=audittrail action="login attempt" $userToken$ $useragent_token$ $host_token$ $info_token$
+      | fields _time user host info clientip useragent session src reason method
       | join user 
           [ | rest /servicesNS/-/-/authentication/users
           | rename title as user
@@ -15,9 +15,7 @@
     <earliest>$login_timerange_token.earliest$</earliest>
     <latest>$login_timerange_token.latest$</latest>
   </search>
-  <!-- Form Inputs -->
-  <!-- Panels Begin -->
-  <fieldset submitButton="true" autoRun="true">
+  <fieldset submitButton="true" autoRun="false">
     <input type="time" token="login_timerange_token" searchWhenChanged="false">
       <label>Time Range</label>
       <default>
@@ -26,7 +24,7 @@
       </default>
     </input>
     <input type="multiselect" token="roleToken">
-      <label>Filter by Roles</label>
+      <label>Roles</label>
       <choice value="*">All</choice>
       <default>*</default>
       <prefix>(</prefix>
@@ -44,7 +42,7 @@
       </search>
     </input>
     <input type="multiselect" token="userToken">
-      <label>Filter by User</label>
+      <label>User</label>
       <choice value="*">All</choice>
       <default>*</default>
       <prefix>(</prefix>
@@ -61,6 +59,26 @@
         <latest>now</latest>
       </search>
     </input>
+    <input type="multiselect" token="info_token">
+      <label>Info</label>
+      <choice value="*">All</choice>
+      <choice value="succeeded">succeeded</choice>
+      <choice value="failed">failed</choice>
+      <prefix>(info IN (</prefix>
+      <suffix>))</suffix>
+      <initialValue>*</initialValue>
+      <delimiter>, </delimiter>
+    </input>
+    <input type="text" token="useragent_token">
+      <label>User Agent</label>
+      <initialValue>*</initialValue>
+    </input>
+    <input type="text" token="host_token">
+      <label>Host</label>
+      <initialValue>*</initialValue>
+      <prefix>(host IN (</prefix>
+      <suffix>))</suffix>
+    </input>
   </fieldset>
   <row>
     <panel id="html_header1">
@@ -74,7 +92,7 @@
       <title>Logins by Info</title>
       <table>
         <search base="userLogins_baseSearch">
-          <query>| stats  dc(user) as "Distinct Users" count by info
+          <query>| stats  dc(user) as "Distinct Users" dc(host) as "Distinct Hosts" count by info
 | sort - count
 | addcoltotals count labelfield="Distinct Users" label=total</query>
         </search>
@@ -182,9 +200,7 @@
         <option name="trellis.scales.shared">1</option>
         <option name="trellis.size">medium</option>
         <!-- Make successes always green bars -->
-        <option name="charting.seriesColors">
-          [3366cc, 53A051]
-        </option>
+        <option name="charting.seriesColors">[3366cc, 53A051]</option>
       </chart>
       <chart>
         <title>Failed</title>
@@ -230,9 +246,7 @@
         <option name="trellis.scales.shared">1</option>
         <option name="trellis.size">medium</option>
         <!-- Make failure bars always red -->
-        <option name="charting.seriesColors">
-          [3366cc, DC4E41]
-        </option>
+        <option name="charting.seriesColors">[3366cc, DC4E41]</option>
       </chart>
     </panel>
   </row>
@@ -303,7 +317,7 @@
         <search base="userLogins_baseSearch">
           <query>| search info=succeeded 
 | eval _time=strftime(_time,"%Y-%m-%d %H:%M:%S") 
-| table _time user roles host clientip useragent info 
+| table _time method reason user roles host clientip useragent info 
 | sort - _time</query>
         </search>
         <option name="count">10</option>
