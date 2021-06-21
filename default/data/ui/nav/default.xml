@@ -12,6 +12,7 @@
   </collection>
    <collection label="Knowledge Objects" >
     <view name="lookups_explorer" />
+    <view name="macros_explorer" />
   </collection>
   <collection label="User Adoption" >
     <view name="user_logins" />
