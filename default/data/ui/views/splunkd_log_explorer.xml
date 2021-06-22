@@ -17,22 +17,6 @@
         <latest>now</latest>
       </default>
     </input>
-    <input type="multiselect" token="host_token">
-      <label>Host</label>
-      <choice value="*">All</choice>
-      <fieldForLabel>host</fieldForLabel>
-      <fieldForValue>host</fieldForValue>
-      <search base="splunkdLogExplorer_baseSearch">
-        <query>| stats values(host) as host
-| mvexpand host
-| dedup host</query>
-      </search>
-      <delimiter> OR  </delimiter>
-      <prefix>(</prefix>
-      <suffix>)</suffix>
-      <valuePrefix>host=</valuePrefix>
-      <initialValue>*</initialValue>
-    </input>
     <input type="multiselect" token="log_level_token">
       <label>Log Level</label>
       <choice value="*">All</choice>
@@ -47,6 +31,12 @@
       <valuePrefix>log_level="</valuePrefix>
       <delimiter> OR </delimiter>
       <valueSuffix>"</valueSuffix>
+    </input>
+    <input type="text" token="host_token">
+      <label>Host</label>
+      <prefix>host IN (</prefix>
+      <suffix>)</suffix>
+      <initialValue>*</initialValue>
     </input>
     <input type="text" token="event_message_token">
       <label>Event Message Contains</label>
@@ -162,7 +152,7 @@
           <done>
             <set token="messages_earliest">$job.earliestTime$</set>
           </done>
-          <query>| stats latest(reltime) as last_seen sparkline as trend count by log_level component event_message
+          <query>| stats dc(host) as distinct_hosts latest(reltime) as last_seen sparkline as trend count by log_level component event_message
 | sort - count</query>
         </search>
         <option name="count">10</option>
