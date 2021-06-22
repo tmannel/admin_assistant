@@ -1,11 +1,13 @@
-<form theme="light">
-  <label>Event Flow</label>
-  <description>Explore data in event indexes. All inputs require  the SUBMIT button.</description>
+<form theme="light" stylesheet="admin_assistant_stylesheet.css">
+  <label>Data Flow</label>
+  <description>Explore data in events and indexes.</description>
   <search id="eventFlow_baseSearch">
     <query>
       | tstats prestats=t summariesonly=t count where $indexToken$ by _time index sourcetype host source splunk_server
       | fields _time index sourcetype host source splunk_server
       | search $sourcetypeToken$ AND $hostToken$ AND $splunk_serverToken$
+      |append 
+        [mstats span=1m count(_value) as count where $indexToken$ $sourcetypeToken$ $hostToken$ metric_name=* by index sourcetype host source]
     </query>
     <earliest>$eventFlow_timepicker.earliest$</earliest>
     <latest>$eventFlow_timepicker.latest$</latest>
@@ -30,7 +32,7 @@
       <fieldForLabel>title</fieldForLabel>
       <fieldForValue>title</fieldForValue>
       <search>
-        <query>|  rest services/data/indexes
+        <query>|  rest services/data/indexes datatype=all
 | fields title
 | dedup title</query>
         <earliest>-24h@h</earliest>
@@ -44,15 +46,14 @@
       <fieldForLabel>sourcetype</fieldForLabel>
       <fieldForValue>sourcetype</fieldForValue>
       <search>
-        <query>| metadata type=sourcetypes
+        <query>| metadata type=sourcetypes index=* index=_*
 | fields sourcetype</query>
         <earliest>0</earliest>
         <latest></latest>
       </search>
-      <prefix>(</prefix>
+      <prefix>sourcetype IN (</prefix>
       <suffix>)</suffix>
-      <valuePrefix>sourcetype=</valuePrefix>
-      <delimiter> OR </delimiter>
+      <delimiter>, </delimiter>
       <initialValue>*</initialValue>
     </input>
     <input type="text" token="hostToken">
@@ -67,52 +68,29 @@
     </input>
   </fieldset>
   <row>
+    <panel id="html_header1">
+      <html encoded="1">&lt;h1 align="center"&gt;Data Overview&lt;/h1&gt;
+      </html>
+    </panel>
+  </row>
+  <row>
     <panel>
       <title>Distinct Values and Total Events</title>
-      <table>
-        <title>total during selected time range</title>
+      <single>
         <search base="eventFlow_baseSearch">
-          <query>| stats  dc(index) as "Indexes Seen" dc(sourcetype) as "Sourcetypes Seen" dc(host) as "Hosts Seen" dc(source) as "Sources Seen" dc(splunk_server) as "Indexers with Buckets" count as "Total Events"
-| transpose
-| rename column as Metric, "row 1" as count</query>
+          <query>| stats  dc(index) as "Indexes Seen" dc(sourcetype) as "Sourcetypes Seen" dc(host) as "Hosts Seen" dc(source) as "Sources Seen" dc(splunk_server) as "Indexers with Buckets" count as "Total Events"</query>
         </search>
-        <option name="count">20</option>
-        <option name="dataOverlayMode">none</option>
         <option name="drilldown">none</option>
-        <option name="percentagesRow">false</option>
+        <option name="height">202</option>
         <option name="refresh.display">progressbar</option>
-        <option name="rowNumbers">false</option>
-        <option name="totalsRow">false</option>
-        <option name="wrap">true</option>
-        <format type="number" field="Total Events">
-          <option name="precision">0</option>
-        </format>
-        <format type="color" field="Metric">
-          <colorPalette type="sharedList"></colorPalette>
-          <scale type="sharedCategory"></scale>
-        </format>
-        <format type="number" field="count">
-          <option name="precision">0</option>
-        </format>
-      </table>
+        <option name="trellis.enabled">1</option>
+      </single>
     </panel>
-    <panel>
-      <title>Count by Indexer</title>
-      <chart>
-        <search base="eventFlow_baseSearch">
-          <query>| stats count by splunk_server</query>
-        </search>
-        <option name="charting.axisTitleX.visibility">visible</option>
-        <option name="charting.axisTitleY.visibility">visible</option>
-        <option name="charting.axisTitleY2.visibility">visible</option>
-        <option name="charting.chart">pie</option>
-        <option name="charting.chart.rangeValues">[0,30,70,100]</option>
-        <option name="charting.chart.style">minimal</option>
-        <option name="charting.drilldown">all</option>
-        <option name="charting.gaugeColors">["0x53a051","0xf8be34","0xdc4e41"]</option>
-        <option name="charting.legend.placement">right</option>
-        <option name="refresh.display">progressbar</option>
-      </chart>
+  </row>
+  <row>
+    <panel id="html_header2">
+      <html encoded="1">&lt;h1 align="center"&gt;Data Flow Over Time&lt;/h1&gt;
+      </html>
     </panel>
   </row>
   <row>
@@ -124,7 +102,7 @@
           | timechart  dc(index) as "Indexes Seen" dc(sourcetype) as "Sourcetypes Seen" dc(host) as "Hosts Seen" dc(source) as "Sources Seen" dc(splunk_server) as "Indexers with Buckets" COUNT as "Total Events"</query>
         </search>
         <option name="charting.axisLabelsX.majorLabelStyle.overflowMode">ellipsisNone</option>
-        <option name="charting.axisLabelsX.majorLabelStyle.rotation">-45</option>
+        <option name="charting.axisLabelsX.majorLabelStyle.rotation">45</option>
         <option name="charting.axisTitleX.visibility">visible</option>
         <option name="charting.axisTitleY.visibility">collapsed</option>
         <option name="charting.axisTitleY2.visibility">visible</option>
@@ -149,7 +127,7 @@
         <option name="charting.layout.splitSeries.allowIndependentYRanges">1</option>
         <option name="charting.legend.labelStyle.overflowMode">ellipsisMiddle</option>
         <option name="charting.legend.mode">standard</option>
-        <option name="charting.legend.placement">left</option>
+        <option name="charting.legend.placement">bottom</option>
         <option name="charting.lineWidth">2</option>
         <option name="refresh.display">progressbar</option>
         <option name="trellis.enabled">0</option>
@@ -160,7 +138,7 @@
   </row>
   <row>
     <panel>
-      <title>Relative Data Over Time</title>
+      <title>Events over Time</title>
       <input type="dropdown" token="splitBy_OverTime" searchWhenChanged="true">
         <label>Split By</label>
         <choice value="index">index</choice>
@@ -171,13 +149,12 @@
         <default>index</default>
       </input>
       <chart>
-        <title>split events over time</title>
         <search base="eventFlow_baseSearch">
           <query>| eval index=ltrim(index, "VALUE")
 | timechart count by $splitBy_OverTime$</query>
         </search>
         <option name="charting.axisLabelsX.majorLabelStyle.overflowMode">ellipsisNone</option>
-        <option name="charting.axisLabelsX.majorLabelStyle.rotation">-45</option>
+        <option name="charting.axisLabelsX.majorLabelStyle.rotation">45</option>
         <option name="charting.axisTitleX.visibility">collapsed</option>
         <option name="charting.axisTitleY.visibility">visible</option>
         <option name="charting.axisTitleY2.visibility">visible</option>
@@ -203,12 +180,36 @@
         <option name="charting.layout.splitSeries.allowIndependentYRanges">0</option>
         <option name="charting.legend.labelStyle.overflowMode">ellipsisMiddle</option>
         <option name="charting.legend.mode">standard</option>
-        <option name="charting.legend.placement">left</option>
+        <option name="charting.legend.placement">bottom</option>
         <option name="charting.lineWidth">2</option>
         <option name="refresh.display">progressbar</option>
         <option name="trellis.enabled">0</option>
         <option name="trellis.scales.shared">1</option>
         <option name="trellis.size">medium</option>
+      </chart>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <title>Thruput Over Time</title>
+      <input type="link" token="split_thruput_by_token" searchWhenChanged="true">
+        <label>Split By</label>
+        <choice value="index">index</choice>
+        <choice value="sourcetype">sourcetype</choice>
+        <initialValue>index</initialValue>
+      </input>
+      <chart>
+        <search>
+          <query>| mstats span=1m avg(_value) as avg_thruput where index=_metrics sourcetype=splunk_metrics_log metric_name=spl.mlog.per_$split_thruput_by_token$_thruput.eps by series 
+| timechart avg(avg_thruput) as avg_thruput by series</query>
+          <earliest>$eventFlow_timepicker.earliest$</earliest>
+          <latest>$eventFlow_timepicker.latest$</latest>
+        </search>
+        <option name="charting.axisLabelsX.majorLabelStyle.rotation">45</option>
+        <option name="charting.chart">line</option>
+        <option name="charting.drilldown">none</option>
+        <option name="charting.legend.placement">bottom</option>
+        <option name="refresh.display">progressbar</option>
       </chart>
     </panel>
   </row>
