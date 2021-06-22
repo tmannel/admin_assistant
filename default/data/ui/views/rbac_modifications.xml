@@ -19,7 +19,7 @@
       </default>
     </input>
     <input type="multiselect" token="operationToken" searchWhenChanged="false">
-      <label>Filter by Operation</label>
+      <label>Operation</label>
       <choice value="create">create</choice>
       <choice value="edit">edit</choice>
       <choice value="remove">remove</choice>
@@ -31,7 +31,7 @@
       <delimiter> OR </delimiter>
     </input>
     <input type="multiselect" token="objectToken" searchWhenChanged="false">
-      <label>Filter by Object</label>
+      <label>Object</label>
       <choice value="*">All</choice>
       <prefix>(</prefix>
       <suffix>)</suffix>
@@ -44,6 +44,12 @@
         <query>| fields object 
 | dedup object</query>
       </search>
+    </input>
+    <input type="text" token="hostToken">
+      <label>Host</label>
+      <prefix>host IN (</prefix>
+      <suffix>)</suffix>
+      <initialValue>*</initialValue>
     </input>
   </fieldset>
   <row>
@@ -61,12 +67,13 @@
         <choice value="object">object</choice>
         <choice value="operation">operation</choice>
         <choice value="user">user</choice>
+        <choice value="host">host</choice>
         <default>object</default>
       </input>
       <chart>
         <title>Queries audit log, separates by user object, and colors by operation. List operations not shown.</title>
         <search base="rbacMods_base_search">
-          <query>| search $objectToken$ $operationToken$
+          <query>| search $objectToken$ $operationToken$ $hostToken$
 | transaction user object operation maxspan=10m 
 | timechart count by $rbacMod_splitBy$</query>
         </search>
@@ -85,9 +92,9 @@
       <title>User and Role Modifications - Table</title>
       <table>
         <search base="rbacMods_base_search">
-          <query>| search $objectToken$ $operationToken$ action!="search"
+          <query>| search $objectToken$ $operationToken$ action!="search" $hostToken$
 | eval _time=strftime(_time, "%Y-%m-%d %H:%M:%S")
-| table user _time operation action object _raw host
+| table host user _time operation action object _raw
 | sort - _time</query>
         </search>
         <option name="count">10</option>
