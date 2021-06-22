@@ -31,6 +31,7 @@
     <view name="datasets" />
     <view name="reports" />
     <view name="alerts" />
+    <view name="admin_assistant_template" />
     <view name="dashboards" />
   </collection>
 </nav>
