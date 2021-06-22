@@ -5,10 +5,10 @@
     <view name="rbac_modifications" />
   </collection>
   <collection label="Data Ingestion" >
-    <view name="event_flow" />
+    <view name="data_flow" />
     <view name="license_usage" />
-    <view name="data_model_utilization" />
     <view name="metrics_explorer" />
+    <view name="data_model_utilization" />
   </collection>
    <collection label="Knowledge Objects" >
     <view name="lookups_explorer" />
