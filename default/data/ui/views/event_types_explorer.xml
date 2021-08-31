@@ -1,0 +1,121 @@
+<form theme="light" stylesheet="admin_assistant_stylesheet.css">
+  <label>Event Types Explorer</label>
+  <description>Analyze your event types using the Splunk REST API.</description>
+  <!-- Base Search -->
+  <search id="baseSearch_1">
+    <query>| rest servicesNS/-/-/saved/eventtypes
+| rename eai:acl.* as *
+</query>
+    <earliest>$timepicker.earliest$</earliest>
+    <latest>$timepicker.latest$</latest>
+  </search>
+  <!-- Form Inputs -->
+  <fieldset submitButton="false" autoRun="true">
+    <input type="time" token="timepicker">
+      <label>Time Range</label>
+      <default>
+        <earliest>@w0</earliest>
+        <latest>now</latest>
+      </default>
+    </input>
+    <input type="multiselect" token="appToken" searchWhenChanged="true">
+      <label>Filter by App</label>
+      <choice value="*">All</choice>
+      <fieldForLabel>app</fieldForLabel>
+      <fieldForValue>app</fieldForValue>
+      <search base="baseSearch_1">
+        <query>| fields app
+| dedup app
+| sort app</query>
+      </search>
+      <delimiter>,  </delimiter>
+      <prefix>(app IN (</prefix>
+      <suffix>))</suffix>
+      <initialValue>*</initialValue>
+    </input>
+    <input type="text" token="splunk_server_token" searchWhenChanged="true">
+      <label>Filter by splunk_server</label>
+      <prefix>(splunk_server IN (</prefix>
+      <suffix>))</suffix>
+      <initialValue>*</initialValue>
+    </input>
+    <input type="text" token="eventtypeTitle_token" searchWhenChanged="true">
+      <label>Filter by Title</label>
+      <choice value="*">All</choice>
+      <fieldForLabel>title</fieldForLabel>
+      <fieldForValue>title</fieldForValue>
+      <delimiter>,  </delimiter>
+      <prefix>(title IN (</prefix>
+      <suffix>))</suffix>
+      <initialValue>*</initialValue>
+    </input>
+  </fieldset>
+  <row>
+    <panel id="html_header2">
+      <html encoded="1">&lt;h1 align="center"&gt;Event Type Summary&lt;/h1&gt;
+        
+      </html>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <table>
+        <title>Lookup Utilization by App</title>
+        <search base="baseSearch_1">
+          <query>| search $splunk_server_token$ $appToken$ $eventtypeTitle_token$
+| stats count by app
+| sort - count
+| addcoltotals count labelfield=app label="total"</query>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+        <format type="color" field="total">
+          <colorPalette type="minMidMax" maxColor="#53A051" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax"></scale>
+        </format>
+        <format type="color" field="total configs">
+          <colorPalette type="minMidMax" maxColor="#5A4575" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="1"></scale>
+        </format>
+        <format type="color" field="count">
+          <colorPalette type="minMidMax" maxColor="#294E70" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minType="percentile" minValue="99"></scale>
+        </format>
+      </table>
+    </panel>
+  </row>
+  <row>
+    <panel id="html_header1">
+      <html>
+            <h1 align="center">Event Type Details</h1>
+        </html>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <title>Lookup Files</title>
+      <table>
+        <title>Found $lookupFile_count$ eventtypes.</title>
+        <search base="baseSearch_1">
+          <done>
+            <set token="lookupFile_count">$job.resultCount$</set>
+          </done>
+          <query>| search $splunk_server_token$ $appToken$ $eventtypeTitle_token$
+| stats values(*) as * by app title
+| table splunk_server app title search sharing tags</query>
+        </search>
+        <option name="count">10</option>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+        <format type="color" field="app">
+          <colorPalette type="sharedList"></colorPalette>
+          <scale type="sharedCategory"></scale>
+        </format>
+        <format type="color" field="splunk_server">
+          <colorPalette type="sharedList"></colorPalette>
+          <scale type="sharedCategory"></scale>
+        </format>
+      </table>
+    </panel>
+  </row>
+</form>
