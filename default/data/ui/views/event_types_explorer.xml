@@ -41,12 +41,14 @@
     </input>
     <input type="text" token="eventtypeTitle_token" searchWhenChanged="true">
       <label>Filter by Title</label>
-      <choice value="*">All</choice>
-      <fieldForLabel>title</fieldForLabel>
-      <fieldForValue>title</fieldForValue>
-      <delimiter>,  </delimiter>
       <prefix>(title IN (</prefix>
       <suffix>))</suffix>
+      <initialValue>*</initialValue>
+    </input>
+    <input type="text" token="tag_token">
+      <label>Filter by Tags</label>
+      <prefix>tags IN (</prefix>
+      <suffix>)</suffix>
       <initialValue>*</initialValue>
     </input>
   </fieldset>
@@ -59,13 +61,16 @@
   </row>
   <row>
     <panel>
+      <title>Event Type Utilization by App</title>
       <table>
-        <title>Lookup Utilization by App</title>
+        <title>Found $app_count$ distinct apps.</title>
         <search base="baseSearch_1">
-          <query>| search $splunk_server_token$ $appToken$ $eventtypeTitle_token$
-| stats count by app
-| sort - count
-| addcoltotals count labelfield=app label="total"</query>
+          <done>
+            <set token="app_count">$job.resultCount$</set>
+          </done>
+          <query>| search $splunk_server_token$ $appToken$ $eventtypeTitle_token$ $tag_token$
+| stats dc(tags) as distinct_tags dc(splunk_server) as splunk_server_count count by app
+| sort - count</query>
         </search>
         <option name="drilldown">none</option>
         <option name="refresh.display">progressbar</option>
@@ -80,6 +85,50 @@
         <format type="color" field="count">
           <colorPalette type="minMidMax" maxColor="#294E70" minColor="#FFFFFF"></colorPalette>
           <scale type="minMidMax" minType="percentile" minValue="99"></scale>
+        </format>
+        <format type="color" field="app">
+          <colorPalette type="sharedList"></colorPalette>
+          <scale type="sharedCategory"></scale>
+        </format>
+      </table>
+    </panel>
+    <panel>
+      <table>
+        <title>Found $tag_count$ distinct tags.</title>
+        <search base="baseSearch_1">
+          <done>
+            <set token="tag_count">$job.resultCount$</set>
+          </done>
+          <query>| search $splunk_server_token$ $appToken$ $eventtypeTitle_token$
+| stats values(*) as * by app title 
+| table splunk_server app title search sharing tags
+| mvexpand tags
+| search $tag_token$
+| stats dc(app) as distinct_apps values(app) as apps dc(splunk_server) as splunk_server_count dc(title) as eventtype_count by tags
+| sort - eventtype_count</query>
+        </search>
+        <option name="count">5</option>
+        <option name="drilldown">none</option>
+        <option name="rowNumbers">true</option>
+        <format type="color" field="total">
+          <colorPalette type="minMidMax" maxColor="#53A051" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax"></scale>
+        </format>
+        <format type="color" field="total configs">
+          <colorPalette type="minMidMax" maxColor="#5A4575" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="1"></scale>
+        </format>
+        <format type="color" field="count">
+          <colorPalette type="minMidMax" maxColor="#294E70" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minType="percentile" minValue="99"></scale>
+        </format>
+        <format type="color" field="distinct_apps">
+          <colorPalette type="minMidMax" maxColor="#5A4575" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="1"></scale>
+        </format>
+        <format type="color" field="eventtype_count">
+          <colorPalette type="minMidMax" maxColor="#53A051" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="1"></scale>
         </format>
       </table>
     </panel>
@@ -100,11 +149,12 @@
           <done>
             <set token="lookupFile_count">$job.resultCount$</set>
           </done>
-          <query>| search $splunk_server_token$ $appToken$ $eventtypeTitle_token$
+          <query>| search $splunk_server_token$ $appToken$ $eventtypeTitle_token$ $tag_token$
 | stats values(*) as * by app title
-| table splunk_server app title search sharing tags</query>
+| table splunk_server app title search sharing tags
+| eval tag_count = mvcount(tags)</query>
         </search>
-        <option name="count">10</option>
+        <option name="count">25</option>
         <option name="drilldown">none</option>
         <option name="refresh.display">progressbar</option>
         <format type="color" field="app">
