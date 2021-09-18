@@ -1,9 +1,41 @@
 <form stylesheet="admin_assistant_stylesheet.css" theme="light">
   <label>Data Model Utilization</label>
   <description>Understand your use of data models.</description>
-  <fieldset submitButton="false">
+  <search id="dataModel_rest_baseSearch">
+    <!-- Base Search 1 -->
+    <query>
+      | rest /servicesNS/-/-/datamodel/model
+      | rename eai:acl.* as *
+      | spath input=acceleration output=acceleration_enabled path=enabled 
+      | spath input=description output=fields objects{}.fields{}.fieldName
+      | spath input=description output=tags objects{}.comment{}.tags{}
+      | search $displayName_token$ $app_token$
+    </query>
+    <earliest>-1d</earliest>
+    <latest>now</latest>
+  </search>
+  <fieldset submitButton="true" autoRun="true">
+    <input type="multiselect" token="splunk_server_token">
+      <label>splunk_server</label>
+      <prefix>splunk_server IN (</prefix>
+      <suffix>)</suffix>
+      <delimiter>, </delimiter>
+      <fieldForLabel>splunk_server</fieldForLabel>
+      <fieldForValue>splunk_server</fieldForValue>
+      <search>
+        <query>
+          | rest servicesNS/-/-/server/info
+          | dedup splunk_server
+          | fields splunk_server
+        </query>
+        <earliest>-24h@h</earliest>
+        <latest>now</latest>
+      </search>
+      <choice value="*">All</choice>
+      <initialValue>*</initialValue>
+    </input>
     <input type="multiselect" token="displayName_token">
-      <label>Filter by Data Model</label>
+      <label>Data Model</label>
       <choice value="*">All</choice>
       <initialValue>*</initialValue>
       <delimiter> OR  </delimiter>
@@ -20,22 +52,24 @@
       <valueSuffix>"</valueSuffix>
     </input>
     <input type="multiselect" token="app_token">
-      <label>Filter by App</label>
+      <label>App</label>
       <choice value="*">All</choice>
       <initialValue>*</initialValue>
       <fieldForLabel>eai:acl.app</fieldForLabel>
       <fieldForValue>eai:acl.app</fieldForValue>
       <search>
-        <query>| rest /servicesNS/-/-/datamodel/model
-| fields eai:acl.app
-| dedup eai:acl.app</query>
+        <query>
+          | rest /servicesNS/-/-/datamodel/model
+          | fields eai:acl.app
+          | dedup eai:acl.app
+        </query>
         <earliest>-30d@d</earliest>
         <latest>now</latest>
       </search>
       <delimiter> OR  </delimiter>
       <prefix>(</prefix>
       <suffix>)</suffix>
-      <valuePrefix>eai:acl.app=</valuePrefix>
+      <valuePrefix>app=</valuePrefix>
     </input>
   </fieldset>
   <row>
@@ -46,67 +80,89 @@
   </row>
   <row>
     <panel>
-      <title>Data Models by App</title>
-      <table>
-        <search>
-          <query>| rest splunk_server=local /servicesNS/-/-/datamodel/model
-| search $displayName_token$ $app_token$
-| stats dc(title) as "Distinct Data Models" by eai:acl.app disabled
-| addcoltotals "Distinct Data Models" labelfield=disabled label="total"
-| rename eai:acl.app as app</query>
-          <earliest>$earliest$</earliest>
-          <latest>$latest$</latest>
+      <title>Distinct Counts</title>
+      <single>
+        <search base="dataModel_rest_baseSearch">
+          <query>| stats dc(title)</query>
         </search>
-        <option name="count">20</option>
-        <option name="dataOverlayMode">none</option>
         <option name="drilldown">none</option>
-        <option name="percentagesRow">false</option>
+        <option name="rangeColors">["0x53a051","0x0877a6","0xf8be34","0xf1813f","0xdc4e41"]</option>
         <option name="refresh.display">progressbar</option>
-        <option name="rowNumbers">false</option>
-        <option name="totalsRow">false</option>
-        <option name="wrap">true</option>
-        <format type="color" field="eai:acl.app">
-          <colorPalette type="sharedList"></colorPalette>
-          <scale type="sharedCategory"></scale>
-        </format>
-        <format type="color" field="Distinct Data Models">
-          <colorPalette type="minMidMax" maxColor="#294E70" midColor="#FFFFFF" minColor="#FFFFFF"></colorPalette>
-          <scale type="minMidMax" maxType="percentile" maxValue="100" midType="percentile" midValue="99.99"></scale>
-        </format>
-        <format type="color" field="disabled">
-          <colorPalette type="map">{"total":#294E70}</colorPalette>
-        </format>
-      </table>
+        <option name="trellis.enabled">0</option>
+        <option name="underLabel">Data Models</option>
+      </single>
+      <single>
+        <search base="dataModel_rest_baseSearch">
+          <query>| stats dc(app)</query>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="rangeColors">["0x53a051","0x0877a6","0xf8be34","0xf1813f","0xdc4e41"]</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="trellis.enabled">0</option>
+        <option name="underLabel">Apps</option>
+      </single>
+    </panel>
+    <panel>
+      <chart>
+        <title>Distinct data models by App, Acceleration</title>
+        <search base="dataModel_rest_baseSearch">
+          <query>| chart dc(title) over app by acceleration_enabled
+| addtotals fieldname=temp_field
+| sort - temp_field
+| fields - temp_field
+| rename false as "not accelerated", true as "accelerated"</query>
+        </search>
+        <option name="charting.axisTitleX.visibility">collapsed</option>
+        <option name="charting.axisTitleY.visibility">collapsed</option>
+        <option name="charting.chart">bar</option>
+        <option name="charting.chart.showDataLabels">all</option>
+        <option name="charting.chart.stackMode">stacked</option>
+        <option name="charting.drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </chart>
+    </panel>
+    <panel>
+      <chart>
+        <title>Distinct data models by app, splunk_server</title>
+        <search base="dataModel_rest_baseSearch">
+          <query>| chart dc(title) over app by splunk_server limit=25
+| rename 0 as enabled, 1 as disabled
+| addtotals fieldname=temp_field
+| sort - temp_field
+| fields - temp_field
+| rename false as "not accelerated", true as "accelerated"</query>
+        </search>
+        <option name="charting.axisTitleX.visibility">collapsed</option>
+        <option name="charting.axisTitleY.visibility">collapsed</option>
+        <option name="charting.chart">bar</option>
+        <option name="charting.chart.showDataLabels">all</option>
+        <option name="charting.chart.stackMode">stacked</option>
+        <option name="charting.drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </chart>
     </panel>
   </row>
   <row>
     <panel>
       <title>Data Model Details</title>
       <table>
-        <search>
-          <query>| rest splunk_server=local /servicesNS/-/-/datamodel/model 
-| search $displayName_token$ $app_token$
-| fields displayName title eai:acl.app eai:acl.perms.* author acceleration.allowed disabled 
-| rename eai:acl.* as *</query>
-          <earliest>-24h@h</earliest>
-          <latest>now</latest>
+        <search base="dataModel_rest_baseSearch">
+          <query>| rename eai:acl.* as * 
+| streamstats values(tags) as tags by splunk_server app title 
+| table splunk_server app title displayName tags acceleration_enabled disabled perms.* author 
+| rename eai:acl.* as * 
+| sort disabled - acceleration_enabled splunk_server app</query>
         </search>
+        <option name="count">25</option>
         <option name="drilldown">none</option>
         <option name="refresh.display">progressbar</option>
-        <option name="rowNumbers">true</option>
+        <option name="rowNumbers">false</option>
         <format type="color" field="acceleration.allowed">
           <colorPalette type="map">{"0":#53A051,"1":#DC4E41}</colorPalette>
         </format>
         <format type="color" field="eai:acl.app">
           <colorPalette type="sharedList"></colorPalette>
           <scale type="sharedCategory"></scale>
-        </format>
-        <format type="color" field="displayName">
-          <colorPalette type="sharedList"></colorPalette>
-          <scale type="sharedCategory"></scale>
-        </format>
-        <format type="color" field="disabled">
-          <colorPalette type="map">{"0":#53A051,"1":#DC4E41}</colorPalette>
         </format>
         <format type="color" field="app">
           <colorPalette type="sharedList"></colorPalette>
@@ -123,6 +179,10 @@
         <format type="color" field="dc_output_fields">
           <colorPalette type="minMidMax" maxColor="#5A4575" minColor="#FFFFFF"></colorPalette>
           <scale type="minMidMax" minValue="1"></scale>
+        </format>
+        <format type="color" field="splunk_server">
+          <colorPalette type="sharedList"></colorPalette>
+          <scale type="sharedCategory"></scale>
         </format>
       </table>
     </panel>
