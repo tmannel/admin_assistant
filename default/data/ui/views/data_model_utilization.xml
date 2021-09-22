@@ -80,53 +80,40 @@
   </row>
   <row>
     <panel>
-      <title>Distinct Counts</title>
-      <single>
+      <table>
+        <title>Distinct Counts</title>
         <search base="dataModel_rest_baseSearch">
-          <query>| stats dc(title)</query>
+          <query>| stats dc(title) as "distinct data models", dc(app) as "distinct apps", dc(tags) as "distinct tags", dc(splunk_server) as "distinct splunk servers"
+| transpose column_name="property"
+| rename "row 1" as value</query>
         </search>
         <option name="drilldown">none</option>
-        <option name="rangeColors">["0x53a051","0x0877a6","0xf8be34","0xf1813f","0xdc4e41"]</option>
         <option name="refresh.display">progressbar</option>
-        <option name="trellis.enabled">0</option>
-        <option name="underLabel">Data Models</option>
-      </single>
-      <single>
+      </table>
+    </panel>
+    <panel>
+      <viz type="sankey_diagram_app.sankey_diagram">
+        <title>Distinct data models by app, splunk_server</title>
         <search base="dataModel_rest_baseSearch">
-          <query>| stats dc(app)</query>
+          <query>| stats count by splunk_server app title
+| appendpipe 
+    [stats count by splunk_server app
+    | rename splunk_server as origin, app as target]
+| appendpipe 
+    [stats count by app title
+    | rename app as origin, title as target]
+| search origin=*
+| fields origin target count</query>
         </search>
         <option name="drilldown">none</option>
-        <option name="rangeColors">["0x53a051","0x0877a6","0xf8be34","0xf1813f","0xdc4e41"]</option>
         <option name="refresh.display">progressbar</option>
-        <option name="trellis.enabled">0</option>
-        <option name="underLabel">Apps</option>
-      </single>
+      </viz>
     </panel>
     <panel>
       <chart>
         <title>Distinct data models by App, Acceleration</title>
         <search base="dataModel_rest_baseSearch">
           <query>| chart dc(title) over app by acceleration_enabled
-| addtotals fieldname=temp_field
-| sort - temp_field
-| fields - temp_field
-| rename false as "not accelerated", true as "accelerated"</query>
-        </search>
-        <option name="charting.axisTitleX.visibility">collapsed</option>
-        <option name="charting.axisTitleY.visibility">collapsed</option>
-        <option name="charting.chart">bar</option>
-        <option name="charting.chart.showDataLabels">all</option>
-        <option name="charting.chart.stackMode">stacked</option>
-        <option name="charting.drilldown">none</option>
-        <option name="refresh.display">progressbar</option>
-      </chart>
-    </panel>
-    <panel>
-      <chart>
-        <title>Distinct data models by app, splunk_server</title>
-        <search base="dataModel_rest_baseSearch">
-          <query>| chart dc(title) over app by splunk_server limit=25
-| rename 0 as enabled, 1 as disabled
 | addtotals fieldname=temp_field
 | sort - temp_field
 | fields - temp_field
@@ -151,7 +138,8 @@
 | streamstats values(tags) as tags by splunk_server app title 
 | table splunk_server app title displayName tags acceleration_enabled disabled perms.* author 
 | rename eai:acl.* as * 
-| sort disabled - acceleration_enabled splunk_server app</query>
+| sort disabled - acceleration_enabled splunk_server app
+| mvcombine splunk_server</query>
         </search>
         <option name="count">25</option>
         <option name="drilldown">none</option>
