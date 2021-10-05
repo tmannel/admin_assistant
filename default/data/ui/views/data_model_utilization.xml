@@ -9,10 +9,16 @@
       | spath input=acceleration output=acceleration_enabled path=enabled 
       | spath input=description output=fields objects{}.fields{}.fieldName
       | spath input=description output=tags objects{}.comment{}.tags{}
-      | search $displayName_token$ $app_token$
+      | spath input=description output=autoextractSearch objects{}.autoextractSearch
     </query>
     <earliest>-1d</earliest>
     <latest>now</latest>
+  </search>
+  <search base="dataModel_rest_baseSearch" id="dataModel_rest_baseSearch_filtered">
+    <!-- Filtered Base Search -->
+    <query>
+      | search $displayName_token$ $app_token$ $status_token$ $acceleration_enabled_token$
+    </query>
   </search>
   <fieldset submitButton="true" autoRun="true">
     <input type="multiselect" token="splunk_server_token">
@@ -32,7 +38,8 @@
         <latest>now</latest>
       </search>
       <choice value="*">All</choice>
-      <initialValue>*</initialValue>
+      <choice value="local">local</choice>
+      <initialValue>local</initialValue>
     </input>
     <input type="multiselect" token="displayName_token">
       <label>Data Model</label>
@@ -44,10 +51,8 @@
       <valuePrefix>displayName="</valuePrefix>
       <fieldForLabel>displayName</fieldForLabel>
       <fieldForValue>displayName</fieldForValue>
-      <search>
-        <query>| rest /servicesNS/-/-/datamodel/model</query>
-        <earliest>-30d@d</earliest>
-        <latest>now</latest>
+      <search base="dataModel_rest_baseSearch">
+        <query>| dedup displayName</query>
       </search>
       <valueSuffix>"</valueSuffix>
     </input>
@@ -71,6 +76,26 @@
       <suffix>)</suffix>
       <valuePrefix>app=</valuePrefix>
     </input>
+    <input type="checkbox" token="acceleration_enabled_token">
+      <label>Acceleration Enabled</label>
+      <choice value="true">true</choice>
+      <choice value="false">false</choice>
+      <prefix>(acceleration_enabled IN (</prefix>
+      <suffix>))</suffix>
+      <initialValue>true,false</initialValue>
+      <delimiter>, </delimiter>
+    </input>
+    <input type="checkbox" token="status_token">
+      <label>Status</label>
+      <choice value="0">enabled</choice>
+      <choice value="1">disabled</choice>
+      <prefix>(disabled IN (</prefix>
+      <suffix>))</suffix>
+      <initialValue>0,1</initialValue>
+      <delimiter> , </delimiter>
+      <fieldForLabel>disabled</fieldForLabel>
+      <fieldForValue>disabled</fieldForValue>
+    </input>
   </fieldset>
   <row>
     <panel id="html_header1">
@@ -82,9 +107,9 @@
     <panel>
       <table>
         <title>Distinct Counts</title>
-        <search base="dataModel_rest_baseSearch">
+        <search base="dataModel_rest_baseSearch_filtered">
           <query>| stats dc(title) as "distinct data models", dc(app) as "distinct apps", dc(tags) as "distinct tags", dc(splunk_server) as "distinct splunk servers"
-| transpose column_name="property"
+| transpose 0 column_name=property
 | rename "row 1" as value</query>
         </search>
         <option name="drilldown">none</option>
@@ -92,27 +117,28 @@
       </table>
     </panel>
     <panel>
-      <viz type="sankey_diagram_app.sankey_diagram">
-        <title>Distinct data models by app, splunk_server</title>
-        <search base="dataModel_rest_baseSearch">
-          <query>| stats count by splunk_server app title
-| appendpipe 
-    [stats count by splunk_server app
-    | rename splunk_server as origin, app as target]
-| appendpipe 
-    [stats count by app title
-    | rename app as origin, title as target]
-| search origin=*
-| fields origin target count</query>
+      <chart>
+        <title>Distinct data models by app, enabled/disabled</title>
+        <search base="dataModel_rest_baseSearch_filtered">
+          <query>| chart dc(title) over app by disabled
+| addtotals fieldname=temp_field
+| sort - temp_field
+| fields - temp_field
+| rename 0 as enabled, 1 as disabled</query>
         </search>
-        <option name="drilldown">none</option>
+        <option name="charting.axisTitleX.visibility">collapsed</option>
+        <option name="charting.axisTitleY.visibility">collapsed</option>
+        <option name="charting.chart">bar</option>
+        <option name="charting.chart.showDataLabels">all</option>
+        <option name="charting.chart.stackMode">stacked</option>
+        <option name="charting.drilldown">none</option>
         <option name="refresh.display">progressbar</option>
-      </viz>
+      </chart>
     </panel>
     <panel>
       <chart>
         <title>Distinct data models by App, Acceleration</title>
-        <search base="dataModel_rest_baseSearch">
+        <search base="dataModel_rest_baseSearch_filtered">
           <query>| chart dc(title) over app by acceleration_enabled
 | addtotals fieldname=temp_field
 | sort - temp_field
@@ -133,12 +159,13 @@
     <panel>
       <title>Data Model Details</title>
       <table>
-        <search base="dataModel_rest_baseSearch">
+        <search base="dataModel_rest_baseSearch_filtered">
           <query>| rename eai:acl.* as * 
 | streamstats values(tags) as tags by splunk_server app title 
+| eval tags=mvjoin(tags, "; ") 
 | table splunk_server app title displayName tags acceleration_enabled disabled perms.* author 
 | rename eai:acl.* as * 
-| sort disabled - acceleration_enabled splunk_server app
+| sort disabled - acceleration_enabled splunk_server app 
 | mvcombine splunk_server</query>
         </search>
         <option name="count">25</option>
