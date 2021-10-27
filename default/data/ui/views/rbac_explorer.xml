@@ -117,7 +117,11 @@
     <panel>
       <title>Number of Indexes</title>
       <table>
+         <title>Found $index_count$ indexes.</title>
         <search base="indexes_base_search">
+          <progress>
+            <set token="index_count">$job.resultCount$</set>
+          </progress>
           <query>
 | rename eai:acl.app as app
 | stats count as number_indexes by app
