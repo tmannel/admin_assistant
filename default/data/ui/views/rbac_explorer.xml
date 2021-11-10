@@ -4,15 +4,13 @@
   <!-- Base search to list indexes -->
   <search id="indexes_base_search">
     <query>
-      | rest services/data/indexes
-      | dedup title
+      | rest $splunk_server_token$ servicesNS/-/-/data/indexes
     </query>
   </search>
   <!-- Base search to list roles -->
   <search id="roles_base_search">
     <query>
-      | rest /services/authorization/roles 
-      | dedup title 
+      | rest $splunk_server_token$ /servicesNS/-/-/authorization/roles 
       | eval number_capabilities=mvcount(capabilities)
       | eval capabilities_configured=if(number_capabilities &gt; 0, "y", "n")
       | eval type=if(match(title,"^(?:admin|can_delete|power|splunk-system-role|user|ess_admin|ess_analyst|ess_user)$$"),"default","custom")
@@ -26,8 +24,7 @@
   <!-- Base search to list users -->
   <search id="users_base_search">
     <query>
-      | rest /services/authentication/users
-      | dedup title 
+      | rest $splunk_server_token$ /servicesNS/-/-/authentication/users
       | eval seconds_since_login=now()-last_successful_login
       | eval last_successful_login=strftime(last_successful_login,"%Y-%m-%d %H:%M") 
       | eval elapsed_since_login=case(seconds_since_login &lt; 3600, round(seconds_since_login / 60) . " min ago",
@@ -38,7 +35,21 @@
       | eval num_roles=mvcount(roles)
     </query>
   </search>
-  <fieldset submitButton="false" autoRun="true"></fieldset>
+  <fieldset submitButton="true" autoRun="true">
+    <input type="dropdown" token="splunk_server_token">
+      <label>Splunk Server</label>
+      <choice value="*">All</choice>
+      <choice value="local">local</choice>
+      <fieldForLabel>splunk_server</fieldForLabel>
+      <fieldForValue>splunk_server</fieldForValue>
+      <search base="roles_base_search">
+        <query>| stats values(splunk_server) as splunk_server 
+| mvexpand splunk_server</query>
+      </search>
+      <initialValue>*</initialValue>
+      <prefix>splunk_server=</prefix>
+    </input>
+  </fieldset>
   <row>
     <panel id="html_header1">
       <html>
@@ -48,63 +59,60 @@
   </row>
   <row>
     <panel>
-      <title>Number of Roles</title>
-      <table>
+      <title>Roles</title>
+      <single>
         <search base="roles_base_search">
-          <query>| stats dc(title) as number_roles by type
-| addcoltotals number_roles labelfield=type label=total</query>
+          <query>|stats dc(splunk_server)</query>
         </search>
         <option name="drilldown">none</option>
-        <format type="color" field="type">
-          <colorPalette type="map">{"total":#294E70}</colorPalette>
-        </format>
-        <format type="color" field="number_roles">
-          <colorPalette type="minMidMax" maxColor="#294E70" minColor="#FFFFFF"></colorPalette>
-          <scale type="minMidMax" minType="percentile" minValue="99.999999"></scale>
-        </format>
-      </table>
-    </panel>
-    <panel>
-      <title>Number of Users</title>
-      <table>
+        <option name="rangeColors">["0x53a051","0x0877a6","0xf8be34","0xf1813f","0xdc4e41"]</option>
+        <option name="underLabel">Distinct Splunk Servers</option>
+      </single>
+      <single>
+        <search base="roles_base_search">
+          <query>|stats dc(title)</query>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="rangeColors">["0x53a051","0x0877a6","0xf8be34","0xf1813f","0xdc4e41"]</option>
+        <option name="underLabel">Distinct Roles</option>
+      </single>
+      <single>
+        <search base="indexes_base_search">
+          <query>|stats dc(title)</query>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="rangeColors">["0x53a051","0x0877a6","0xf8be34","0xf1813f","0xdc4e41"]</option>
+        <option name="underLabel">Distinct Indexes</option>
+      </single>
+      <single>
         <search base="users_base_search">
-          <query>| eval is_admin=if(roles="admin", "y", "n")
-| stats count by is_admin type
-| addcoltotals count labelfield=type label=total</query>
+          <query>|stats dc(title)</query>
         </search>
         <option name="drilldown">none</option>
-        <format type="color" field="is_admin">
-          <colorPalette type="map">{"total":#708794}</colorPalette>
-        </format>
-        <format type="color" field="count">
-          <colorPalette type="minMidMax" maxColor="#294E70" minColor="#FFFFFF"></colorPalette>
-          <scale type="minMidMax" minType="percentile" minValue="99.99999"></scale>
-        </format>
-        <format type="color" field="type">
-          <colorPalette type="map">{"total":#294E70}</colorPalette>
-        </format>
-      </table>
+        <option name="rangeColors">["0x53a051","0x0877a6","0xf8be34","0xf1813f","0xdc4e41"]</option>
+        <option name="underLabel">Distinct Users</option>
+      </single>
     </panel>
+  </row>
+  <row>
     <panel>
-      <title>Authentication Integrations</title>
       <table>
+        <title>Authentication Integrations</title>
         <search>
-          <query>| rest services/admin/SAML-groups 
-| rename title as SAML-group 
-| dedup title 
+          <query>| rest $splunk_server_token$ services/admin/SAML-groups 
+| eval type="SAML-groups" 
 | append 
-    [ rest services/admin/LDAP-groups 
-    | rename title as LDAP-group 
-    | dedup title] 
-| stats dc(SAML-group) as number_SAML-groups dc(LDAP-group) as number_LDAP-groups
-| transpose 
-| rename column as config, "row 1" as count
-| addcoltotals labelfield=config label=total</query>
+    [ rest splunk_server=* services/admin/LDAP-groups 
+    | eval type="LDAP-groups"] 
+| table splunk_server type title roles author updated 
+| stats dc(title) as group_count dc(roles) as role_count by splunk_server type 
+| sort - group_count role_count</query>
           <earliest>-60m@m</earliest>
           <latest>now</latest>
           <sampleRatio>1</sampleRatio>
         </search>
         <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
         <format type="color" field="config">
           <colorPalette type="map">{"total":#294E70}</colorPalette>
         </format>
@@ -115,25 +123,66 @@
       </table>
     </panel>
     <panel>
-      <title>Number of Indexes</title>
       <table>
-         <title>Found $index_count$ indexes.</title>
-        <search base="indexes_base_search">
-          <progress>
-            <set token="index_count">$job.resultCount$</set>
-          </progress>
-          <query>
-| rename eai:acl.app as app
-| stats count as number_indexes by app
-| addcoltotals number_indexes labelfield=app label=total</query>
+        <title>Roles by Type</title>
+        <search base="roles_base_search">
+          <query>| stats dc(title) as number_roles by splunk_server type 
+| sort - number_roles</query>
         </search>
         <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+        <format type="color" field="type">
+          <colorPalette type="map">{"total":#294E70}</colorPalette>
+        </format>
+        <format type="color" field="number_roles">
+          <colorPalette type="minMidMax" maxColor="#294E70" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="1"></scale>
+        </format>
+      </table>
+    </panel>
+    <panel>
+      <table>
+        <title>Indexes by App</title>
+        <search base="indexes_base_search">
+          <query>| rename eai:acl.app as app 
+| stats dc(title) as number_indexes by app 
+| sort - number_indexes</query>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
         <format type="color" field="app">
           <colorPalette type="map">{"total":#294E70}</colorPalette>
         </format>
         <format type="color" field="number_indexes">
           <colorPalette type="minMidMax" maxColor="#294E70" minColor="#FFFFFF"></colorPalette>
-          <scale type="minMidMax" minType="percentile" minValue="99.9999999"></scale>
+          <scale type="minMidMax" minValue="1"></scale>
+        </format>
+      </table>
+    </panel>
+    <panel>
+      <table>
+        <title>Users by Admin, Type</title>
+        <search base="users_base_search">
+          <query>| eval is_admin=if(roles="admin", "y", "n") 
+| mvcombine splunk_server 
+| stats dc(title) as user_count by is_admin type 
+| sort - user_count</query>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+        <format type="color" field="is_admin">
+          <colorPalette type="map">{"total":#708794}</colorPalette>
+        </format>
+        <format type="color" field="count">
+          <colorPalette type="minMidMax" maxColor="#294E70" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minType="percentile" minValue="99.99999"></scale>
+        </format>
+        <format type="color" field="type">
+          <colorPalette type="map">{"total":#294E70}</colorPalette>
+        </format>
+        <format type="color" field="user_count">
+          <colorPalette type="minMidMax" maxColor="#294E70" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="1"></scale>
         </format>
       </table>
     </panel>
@@ -157,7 +206,7 @@
         <fieldForLabel>title</fieldForLabel>
         <fieldForValue>title</fieldForValue>
         <search>
-          <query>| rest /services/authorization/roles
+          <query>| rest $splunk_server_token$ /services/authorization/roles
 | fields title
 | dedup title</query>
           <earliest>0</earliest>
@@ -175,7 +224,7 @@
         <fieldForLabel>title</fieldForLabel>
         <fieldForValue>title_token</fieldForValue>
         <search>
-          <query>|  rest services/data/indexes
+          <query>|  rest $splunk_server_token$ services/data/indexes
 | dedup title
 | fields title
 | eval title_token="srchIndexesAllowed=".title</query>
@@ -192,7 +241,7 @@
         <fieldForLabel>title</fieldForLabel>
         <fieldForValue>title_token</fieldForValue>
         <search>
-          <query>|  rest services/data/indexes
+          <query>|  rest $splunk_server_token$ services/data/indexes
 | dedup title
 | fields title
 | eval title_token="imported_srchIndexesAllowed=".title</query>
@@ -208,17 +257,18 @@
       </input>
       <table>
         <search base="roles_base_search">
-          <query>| fields title srchIndexesAllowed srchIndexesDefault srchFilter imported_roles imported_srchIndexesAllowed imported_srchFilter defaultApp author number_capabilities number_users capabilities
+          <query>| fields splunk_server title srchIndexesAllowed srchIndexesDefault srchFilter imported_roles imported_srchIndexesAllowed imported_srchFilter defaultApp author number_capabilities number_users capabilities
 | rename imported_* as "imported *"
 | search $role_token$ $srchIndexesAllowed_token$ 
 | eval capabilities=mvjoin(capabilities,"; ") 
-| table title srchIndexesAllowed srchIndexesDefault srchFilter imported* defaultApp author number_capabilities $capabilities_token$ 
+| table splunk_server title srchIndexesAllowed srchIndexesDefault srchFilter imported* defaultApp author number_capabilities $capabilities_token$ 
 | sort - number_users updated</query>
         </search>
         <option name="count">20</option>
         <option name="dataOverlayMode">none</option>
         <option name="drilldown">none</option>
         <option name="percentagesRow">false</option>
+        <option name="refresh.display">progressbar</option>
         <option name="rowNumbers">true</option>
         <option name="totalsRow">false</option>
         <option name="wrap">true</option>
@@ -229,10 +279,6 @@
         <format type="color" field="number_capabilities">
           <colorPalette type="minMidMax" maxColor="#294E70" minColor="#FFFFFF"></colorPalette>
           <scale type="minMidMax" minValue="0"></scale>
-        </format>
-        <format type="color" field="title">
-          <colorPalette type="sharedList"></colorPalette>
-          <scale type="sharedCategory"></scale>
         </format>
       </table>
     </panel>
@@ -281,7 +327,7 @@
         <search base="users_base_search">
           <query>| eval last_successful_login=last_successful_login." - ".elapsed_since_login | search $userSrch_user_token$ $userSrch_role_token$ 
 | rename title as userName, realname as Name 
-| table Name userName email roles num_roles type last_successful_login defaultApp 
+| table splunk_server Name userName email roles num_roles type last_successful_login defaultApp 
 | sort - lastLogin</query>
         </search>
         <option name="count">20</option>
@@ -300,32 +346,6 @@
           <colorPalette type="map"></colorPalette>
         </format>
       </table>
-    </panel>
-    <panel>
-      <title>Role Inheritance</title>
-      <viz type="sankey_diagram_app.sankey_diagram">
-        <title>Queries REST /services/authorization/roles for imported roles by role. Roles on the right inherit those to the left.</title>
-        <search base="roles_base_search">
-          <query>| mvexpand imported_roles 
-| stats count by imported_roles title</query>
-        </search>
-        <option name="drilldown">none</option>
-        <option name="refresh.display">progressbar</option>
-        <option name="sankey_diagram_app.sankey_diagram.colorMode">categorical</option>
-        <option name="sankey_diagram_app.sankey_diagram.maxColor">#3fc77a</option>
-        <option name="sankey_diagram_app.sankey_diagram.minColor">#d93f3c</option>
-        <option name="sankey_diagram_app.sankey_diagram.numOfBins">6</option>
-        <option name="sankey_diagram_app.sankey_diagram.showBackwards">false</option>
-        <option name="sankey_diagram_app.sankey_diagram.showLabels">true</option>
-        <option name="sankey_diagram_app.sankey_diagram.showLegend">false</option>
-        <option name="sankey_diagram_app.sankey_diagram.showSelf">false</option>
-        <option name="sankey_diagram_app.sankey_diagram.showTooltip">true</option>
-        <option name="sankey_diagram_app.sankey_diagram.styleBackwards">false</option>
-        <option name="sankey_diagram_app.sankey_diagram.useColors">true</option>
-        <option name="trellis.enabled">0</option>
-        <option name="trellis.scales.shared">1</option>
-        <option name="trellis.size">medium</option>
-      </viz>
     </panel>
   </row>
 </form>
