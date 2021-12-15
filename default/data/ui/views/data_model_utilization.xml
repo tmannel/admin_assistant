@@ -1,10 +1,10 @@
-<form stylesheet="admin_assistant_stylesheet.css" theme="light">
+<form stylesheet="admin_assistant_stylesheet.css" theme="dark">
   <label>Data Model Utilization</label>
   <description>Understand your use of data models.</description>
   <search id="dataModel_rest_baseSearch">
     <!-- Base Search 1 -->
     <query>
-      | rest /servicesNS/-/-/datamodel/model
+      | rest $splunk_server_token$ /servicesNS/-/-/datamodel/model
       | rename eai:acl.* as *
       | spath input=acceleration output=acceleration_enabled path=enabled 
       | spath input=description output=fields objects{}.fields{}.fieldName
@@ -23,9 +23,7 @@
   <fieldset submitButton="true" autoRun="true">
     <input type="multiselect" token="splunk_server_token">
       <label>splunk_server</label>
-      <prefix>splunk_server IN (</prefix>
-      <suffix>)</suffix>
-      <delimiter>, </delimiter>
+      <delimiter> </delimiter>
       <fieldForLabel>splunk_server</fieldForLabel>
       <fieldForValue>splunk_server</fieldForValue>
       <search>
@@ -40,6 +38,7 @@
       <choice value="*">All</choice>
       <choice value="local">local</choice>
       <initialValue>local</initialValue>
+      <valuePrefix>splunk_server=</valuePrefix>
     </input>
     <input type="multiselect" token="displayName_token">
       <label>Data Model</label>
@@ -163,10 +162,12 @@
           <query>| rename eai:acl.* as * 
 | streamstats values(tags) as tags by splunk_server app title 
 | eval tags=mvjoin(tags, "; ") 
-| table splunk_server app title displayName tags acceleration_enabled disabled perms.* author 
+| table splunk_server app title displayName tags  perms.* author acceleration_enabled disabled
 | rename eai:acl.* as * 
 | sort disabled - acceleration_enabled splunk_server app 
-| mvcombine splunk_server</query>
+| mvcombine splunk_server
+| replace 0 with "false", 1 with "true" in disabled
+| sort + disabled - acceleration_enabled + splunk_server app title</query>
         </search>
         <option name="count">25</option>
         <option name="drilldown">none</option>
@@ -198,6 +199,12 @@
         <format type="color" field="splunk_server">
           <colorPalette type="sharedList"></colorPalette>
           <scale type="sharedCategory"></scale>
+        </format>
+        <format type="color" field="disabled">
+          <colorPalette type="map">{"false":#53A051}</colorPalette>
+        </format>
+        <format type="color" field="acceleration_enabled">
+          <colorPalette type="map">{"true":#53A051}</colorPalette>
         </format>
       </table>
     </panel>
