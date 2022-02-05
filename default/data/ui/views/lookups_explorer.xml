@@ -50,10 +50,6 @@
     </input>
     <input type="text" token="splunk_server_token" searchWhenChanged="true">
       <label>Filter by splunk_server</label>
-      <choice value="*">All</choice>
-      <fieldForLabel>splunk_server</fieldForLabel>
-      <fieldForValue>splunk_server</fieldForValue>
-      <delimiter>,  </delimiter>
       <prefix>(splunk_server IN (</prefix>
       <suffix>))</suffix>
       <initialValue>*</initialValue>
