@@ -1,9 +1,9 @@
-<form theme="light" stylesheet="admin_assistant_stylesheet.css">
+<form theme="dark" stylesheet="admin_assistant_stylesheet.css">
   <label>Event Types Explorer</label>
   <description>Analyze your event types using the Splunk REST API.</description>
   <!-- Base Search -->
   <search id="baseSearch_1">
-    <query>| rest servicesNS/-/-/saved/eventtypes
+    <query>| rest splunk_server=* servicesNS/-/-/saved/eventtypes
 | rename eai:acl.* as *
 </query>
     <earliest>$timepicker.earliest$</earliest>
@@ -73,7 +73,6 @@
 | sort - count</query>
         </search>
         <option name="drilldown">none</option>
-        <option name="refresh.display">progressbar</option>
         <format type="color" field="total">
           <colorPalette type="minMidMax" maxColor="#53A051" minColor="#FFFFFF"></colorPalette>
           <scale type="minMidMax"></scale>
@@ -83,8 +82,8 @@
           <scale type="minMidMax" minValue="1"></scale>
         </format>
         <format type="color" field="count">
-          <colorPalette type="minMidMax" maxColor="#294E70" minColor="#FFFFFF"></colorPalette>
-          <scale type="minMidMax" minType="percentile" minValue="99"></scale>
+          <colorPalette type="minMidMax" maxColor="#5A4575" minColor="#3C444D"></colorPalette>
+          <scale type="minMidMax" minValue="1"></scale>
         </format>
         <format type="color" field="app">
           <colorPalette type="sharedList"></colorPalette>
@@ -122,12 +121,8 @@
           <colorPalette type="minMidMax" maxColor="#294E70" minColor="#FFFFFF"></colorPalette>
           <scale type="minMidMax" minType="percentile" minValue="99"></scale>
         </format>
-        <format type="color" field="distinct_apps">
-          <colorPalette type="minMidMax" maxColor="#5A4575" minColor="#FFFFFF"></colorPalette>
-          <scale type="minMidMax" minValue="1"></scale>
-        </format>
         <format type="color" field="eventtype_count">
-          <colorPalette type="minMidMax" maxColor="#53A051" minColor="#FFFFFF"></colorPalette>
+          <colorPalette type="minMidMax" maxColor="#5A4575" minColor="#3C444D"></colorPalette>
           <scale type="minMidMax" minValue="1"></scale>
         </format>
       </table>
@@ -142,7 +137,6 @@
   </row>
   <row>
     <panel>
-      <title>Lookup Files</title>
       <table>
         <title>Found $lookupFile_count$ eventtypes.</title>
         <search base="baseSearch_1">
@@ -151,8 +145,10 @@
           </done>
           <query>| search $splunk_server_token$ $appToken$ $eventtypeTitle_token$ $tag_token$
 | stats values(*) as * by app title
-| table splunk_server app title search sharing tags
-| eval tag_count = mvcount(tags)</query>
+| eval title_lower=lower(title)
+| sort 0 title_lower
+| table splunk_server app title description search sharing tags disabled 
+| replace 0 with " 0 (enabled)", 1 with "1 (disabled)" in disabled</query>
         </search>
         <option name="count">25</option>
         <option name="drilldown">none</option>
