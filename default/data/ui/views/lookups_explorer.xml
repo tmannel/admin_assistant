@@ -1,4 +1,4 @@
-<form theme="light" stylesheet="admin_assistant_stylesheet.css">
+<form theme="dark" stylesheet="admin_assistant_stylesheet.css">
   <label>Lookups Explorer</label>
   <description>Analyze your lookups using the Splunk REST API.</description>
   <!-- Base Search -->
